@@ -277,6 +277,15 @@
       showStage();
     }
 
+    // リトライ処理
+    function handleRetry() {
+      if (isHiddenStage) {
+        initHiddenStage();
+      } else {
+        location.reload();
+      }
+    }
+
     // ステージ表示
     function showStage() {
       initStage();
@@ -306,9 +315,9 @@
       // ナラティブ進行中は入力を受け付けない（またはスキップ不可にする）
       if (narrativeIdx >= 0) return;
 
-      // ゲームオーバーまたはクリア時にRでリロード
+      // ゲームオーバーまたはクリア時にRでリトライ
       if (!playing && e.code === "KeyR") {
-        location.reload();
+        handleRetry();
       }
     });
     window.addEventListener("keyup", e => {
@@ -339,9 +348,9 @@
           playing = true;
           document.getElementById("msg").style.display = "none";
           return;
-        } else if (!isHiddenStage) {
-          // ゲームオーバーまたはクリア画面でタップしたらリロード
-          location.reload();
+        } else {
+          // ゲームオーバーまたはクリア画面でタップしたらリトライ
+          handleRetry();
           return;
         }
       }
