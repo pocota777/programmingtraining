@@ -13,22 +13,38 @@
       align-items: center;
       min-height: 100vh;
       font-family: sans-serif;
-      padding: 20px;
-      box-sizing: border-box;
+      overflow: hidden;
     }
+
     #game-container {
       position: relative;
-      width: 400px;
-      height: 800px;
+      /* PCでは画面の高さの90%程度にする */
+      height: 90vh;
+      aspect-ratio: 1 / 2;
       background: #000;
-      box-shadow: 0 0 50px rgba(0,0,0,0.5);
-      flex-shrink: 0;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
+
     canvas {
-      width: 400px;
-      height: 800px;
+      width: 100%;
+      height: 100%;
       display: block;
       touch-action: none;
+    }
+
+    /* スマホ（縦長画面）用の調整 */
+    @media (max-width: 600px) {
+      #game-container {
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        max-height: none;
+        aspect-ratio: auto;
+        /* スマホでは画面いっぱいに */
+      }
     }
 
     #msg {
@@ -38,17 +54,23 @@
       transform: translate(-50%, -50%);
       color: #fff;
       text-align: center;
-      font-size: 36px;
+      font-size: 28px;
+      /* 小さく調整 */
       font-weight: 900;
-      text-shadow: 0 0 10px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.8);
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 0, 0, 0.8);
       background: rgba(0, 0, 0, 0.7);
-      padding: 20px 40px;
+      padding: 15px 20px;
       border-radius: 10px;
       border: 2px solid #fff;
       pointer-events: none;
       z-index: 100;
-      white-space: nowrap;
+      width: 90%;
+      /* 横幅制限 */
+      max-width: 360px;
+      box-sizing: border-box;
+      line-height: 1.2;
     }
+
     #msg span {
       display: block;
       font-size: 18px;
@@ -77,15 +99,21 @@
       chef: "🧑‍🍳",
       sushi: "🍣",
       money: "💴",
-      bunny: "👯‍♀️"
+      bunny: "👱‍♀️"
     };
 
     let player, bullets, enemyBullets, enemies, boss;
     let keys = {};
     let stage = 1, score = 0;
     let playing = false, waiting = true;
-    let enemyDir = 1;
     let shake = 0;
+    let isHiddenStage = false;
+    let narrativeIdx = -1;
+    const narrativeLines = [
+      "思い出した…",
+      "私は丸の内で働く会社員…",
+      "こんなところでお鮨を食べている場合じゃなかった！"
+    ];
 
     // サウンド設定 (Web Audio API)
     let audioCtx = null;
@@ -137,23 +165,37 @@
           setTimeout(playNextNote, 1000);
           return;
         }
+        
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = "sine"; // より柔らかい音
-        osc.frequency.setValueAtTime(notes[noteIdx], audioCtx.currentTime);
         
-        gain.gain.setValueAtTime(0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.02, audioCtx.currentTime + 0.1); // 柔らかいアタック
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
-        
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 2.0);
-        
-        noteIdx = (noteIdx + 1) % notes.length;
-        // テンポを遅くし、ランダムな間隔を少し入れることで「落ち着き」を出す
-        setTimeout(playNextNote, 1200 + Math.random() * 800);
+        if (!isHiddenStage) {
+          // --- お鮨屋：ゆったりした音 ---
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(notes[noteIdx], audioCtx.currentTime);
+          gain.gain.setValueAtTime(0, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.02, audioCtx.currentTime + 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 2.0);
+          noteIdx = (noteIdx + 1) % notes.length;
+          setTimeout(playNextNote, 1200 + Math.random() * 800);
+        } else {
+          // --- オフィス：緊迫感のあるテクノ風 ---
+          const tenseNotes = [110.00, 123.47, 130.81, 146.83]; // 低い A, B, C, D
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(tenseNotes[noteIdx % tenseNotes.length], audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.2);
+          noteIdx++;
+          setTimeout(playNextNote, 150); // 高速テンポ
+        }
       }
       playNextNote();
     }
@@ -161,31 +203,78 @@
     // 初期化
     function initStage() {
       if (stage === 1) {
-        player = { x: 180, y: 590, w: 40, h: 20, speed: 8, life: 5 };
-      } else {
-        player.x = 180;
-        player.y = 590;
+        player = { x: 200, y: 600, w: 40, h: 40, speed: 10, life: 5, targetX: 200 };
+        score = 0;
       }
+      player.y = 600;
+      player.x = 200;
+      player.targetX = undefined;
       shake = 0;
-
       bullets = [];
       enemyBullets = [];
       enemies = [];
       boss = null;
 
       if (stage < 4) {
-        for (let y = 0; y < 2 + stage; y++) {
-          for (let x = 0; x < 6; x++) {
-            enemies.push({
-              x: 40 + x * 50,
-              y: 260 + y * 50, // 下にずらした
-              type: y
-            });
-          }
+        const countMult = isHiddenStage ? 1.5 : 1;
+        const speedMult = isHiddenStage ? 1.4 : 1;
+
+        for (let i = 0; i < Math.floor((5 + stage * 2) * countMult); i++) {
+          enemies.push({
+            x: Math.random() * 340 + 30,
+            y: 250 + Math.random() * 50, // テーブルの上部から開始
+            vx: (Math.random() - 0.5) * (1 + stage * 0.3) * speedMult,
+            vy: (Math.random() - 0.5) * (1 + stage * 0.3) * speedMult,
+            downSpeed: (0.1 + stage * 0.05) * speedMult // 徐々に下がるスピード
+          });
         }
       } else {
-        boss = { x: 140, y: 260, hp: 20, maxHp: 20, vx: 1.5 };
+        const hp = isHiddenStage ? 60 : 30;
+        boss = { x: 150, y: 240, w: 100, h: 100, vx: isHiddenStage ? 3 : 2, hp: hp, maxHp: hp };
       }
+    }
+
+    // 裏ステージへの移行
+    function startHiddenStageTransition() {
+      playing = false;
+      narrativeIdx = 0;
+      showNarrative();
+    }
+
+    function showNarrative() {
+      const msgEl = document.getElementById("msg");
+      msgEl.innerHTML = narrativeLines[narrativeIdx];
+      msgEl.style.color = "white";
+      msgEl.style.borderColor = "white";
+      msgEl.style.display = "block";
+
+      // 2秒後に自動で次へ
+      setTimeout(nextNarrative, 2000);
+    }
+
+    function nextNarrative() {
+      if (narrativeIdx === -1) return; // 既に終了している場合は無視
+      narrativeIdx++;
+      if (narrativeIdx < narrativeLines.length) {
+        showNarrative();
+      } else {
+        narrativeIdx = -1;
+        initHiddenStage();
+      }
+    }
+
+    function initHiddenStage() {
+      isHiddenStage = true;
+      stage = 1; // 裏ステージ1から
+      score = 0;
+
+      // アイコン変更
+      emojis.chef = "👨‍💼";
+      emojis.sushi = "📃";
+      emojis.money = "💻";
+      emojis.bunny = "🧑‍💼";
+
+      showStage();
     }
 
     // ステージ表示
@@ -208,10 +297,19 @@
     }
 
     // 入力
-    window.addEventListener("keydown", e => { 
-      keys[e.code] = true; 
+    window.addEventListener("keydown", e => {
+      keys[e.code] = true;
       initAudio(); // キー操作でも開始
       startBGM();
+      player.targetX = undefined; // キー入力時はターゲット追従を解除
+
+      // ナラティブ進行中は入力を受け付けない（またはスキップ不可にする）
+      if (narrativeIdx >= 0) return;
+
+      // ゲームオーバーまたはクリア時にRでリロード
+      if (!playing && e.code === "KeyR") {
+        location.reload();
+      }
     });
     window.addEventListener("keyup", e => {
       if (e.code === "Space") {
@@ -233,25 +331,33 @@
       initAudio(); // ユーザー操作でオーディオ開始
       startBGM();
 
-      if (!playing && waiting) {
-        waiting = false;
-        playing = true;
-        document.getElementById("msg").style.display = "none";
-        return;
+      if (narrativeIdx >= 0) return;
+
+      if (!playing) {
+        if (waiting) {
+          waiting = false;
+          playing = true;
+          document.getElementById("msg").style.display = "none";
+          return;
+        } else if (!isHiddenStage) {
+          // ゲームオーバーまたはクリア画面でタップしたらリロード
+          location.reload();
+          return;
+        }
       }
-      
+
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const x = (clientX - rect.left) * (canvas.width / rect.width);
-      
+
       player.targetX = x; // ターゲット位置へ移動
-      
+
       // 自動射撃 (タッチ中)
       if (playing && Math.random() < 0.2) {
         bullets.push({ x: player.x + 10, y: player.y });
       }
     }
-    
+
     canvas.addEventListener("touchstart", e => { e.preventDefault(); handlePointer(e); }, { passive: false });
     canvas.addEventListener("touchmove", e => { e.preventDefault(); handlePointer(e); }, { passive: false });
     canvas.addEventListener("mousedown", e => { handlePointer(e); });
@@ -268,44 +374,58 @@
       bullets = bullets.filter(b => b.y > 0);
       enemyBullets = enemyBullets.filter(b => b.y < 800);
 
+      // 振動の減衰は常に実行する
+      if (shake > 0) shake *= 0.9;
+
       if (!playing) return;
-      
+
       // 移動
       if (keys["ArrowLeft"]) player.x -= player.speed;
       if (keys["ArrowRight"]) player.x += player.speed;
-      
-      // タッチ追従
+
+      // タッチ・マウス追従 (瞬時に移動してレスポンスを良くする)
       if (player.targetX !== undefined) {
-        const dx = player.targetX - player.x;
-        if (Math.abs(dx) > player.speed) {
-          player.x += Math.sign(dx) * player.speed;
-        }
+        player.x = player.targetX;
       }
 
       if (player.x < 0) player.x = 0;
-      if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
+      if (player.x > 400) player.x = 400;
 
       bullets.forEach(b => b.y -= 7);
       enemyBullets.forEach(b => b.y += 3);
 
-      // 敵
-      if (enemies.length) {
-        let edge = false;
-        enemies.forEach(e => {
-          e.x += enemyDir * (0.7 + stage * 0.2);
-          if (e.x < 10 || e.x > 360) edge = true;
-        });
-        if (edge) {
-          enemyDir *= -1;
-          enemies.forEach(e => e.y += 15);
+      // 敵の独立したランダム移動 ＋ 下降
+      enemies.forEach((e, ei) => {
+        e.x += e.vx;
+        e.y += e.vy + e.downSpeed;
+
+        // 壁バウンド (テーブル内: X:20-380, Y:240-600)
+        if (e.x < 20 || e.x > 380) e.vx *= -1;
+        if (e.y < 240 || e.y > 600) e.vy *= -1;
+
+        // たまに方向転換
+        if (Math.random() < 0.02) {
+          e.vx = (Math.random() - 0.5) * (1 + stage * 0.4);
+          e.vy = (Math.random() - 0.5) * (1 + stage * 0.4);
         }
 
-        enemies.forEach(e => {
-          if (Math.random() < 0.001 + stage * 0.0005) {
-            enemyBullets.push({ x: e.x + 10, y: e.y });
-          }
-        });
-      }
+        // プレイヤーの位置を越えたらゲームオーバー (侵攻)
+        if (e.y > 610) {
+          playing = false;
+          shake = 0;
+          const msgEl = document.getElementById("msg");
+          msgEl.innerHTML = "INVASION!<br>GAME OVER<br><span>TAP or R to RETRY</span>";
+          msgEl.style.color = "#ff0000";
+          msgEl.style.borderColor = "#ff0000";
+          msgEl.style.display = "block";
+        }
+
+        // ショット (裏ステージはさらに頻度アップ)
+        const shotProb = isHiddenStage ? 0.005 : 0.002;
+        if (Math.random() < shotProb + stage * 0.001) {
+          enemyBullets.push({ x: e.x, y: e.y + 10 });
+        }
+      });
 
       // ボス
       if (boss) {
@@ -346,7 +466,12 @@
           shake = 15;
           if (player.life <= 0) {
             playing = false;
-            document.getElementById("msg").innerHTML = "GAME OVER";
+            shake = 0; // 振動を止める
+            const msgEl = document.getElementById("msg");
+            msgEl.innerHTML = "GAME OVER<br><span>TAP or R to RETRY</span>";
+            msgEl.style.color = "#ff0000";
+            msgEl.style.borderColor = "#ff0000";
+            msgEl.style.display = "block";
           }
         }
       });
@@ -357,18 +482,20 @@
         showStage();
       }
 
-      // ⭐ エンディング変更
+      // ⭐ エンディング変更 (裏ステージへの分岐)
       if (boss && boss.hp <= 0) {
         playing = false;
         shake = 0;
-        const msgEl = document.getElementById("msg");
-        msgEl.innerHTML = "MISSION COMPLETE";
-        msgEl.style.color = "#ffff00";
-        msgEl.style.borderColor = "#ffff00";
-        msgEl.style.display = "block";
+        if (!isHiddenStage) {
+          startHiddenStageTransition();
+        } else {
+          const msgEl = document.getElementById("msg");
+          msgEl.innerHTML = "ALL MISSIONS COMPLETE<br><span>仕事に戻ります…</span>";
+          msgEl.style.color = "#00ffff";
+          msgEl.style.borderColor = "#00ffff";
+          msgEl.style.display = "block";
+        }
       }
-
-      if (shake > 0) shake *= 0.9;
     }
 
     // 描画
@@ -381,19 +508,83 @@
 
       ctx.clearRect(0, 0, 400, 800);
 
-      // 背景 (全体を40px下にずらしてUIスペースを確保)
-      // 上部 (板前)
-      ctx.drawImage(bgImg, 0, 0, 1024, 350, 0, 40, 400, 200);
-      // 中部 (テーブル)
-      ctx.drawImage(bgImg, 0, 350, 1024, 300, 0, 240, 400, 400);
-      // 下部 (客席)
-      ctx.drawImage(bgImg, 0, 650, 1024, 374, 0, 640, 400, 200);
+      if (!isHiddenStage) {
+        // お鮨屋背景
+        ctx.drawImage(bgImg, 0, 0, 1024, 350, 0, 40, 400, 200);
+        ctx.drawImage(bgImg, 0, 350, 1024, 300, 0, 240, 400, 400);
+        ctx.drawImage(bgImg, 0, 650, 1024, 374, 0, 640, 400, 200);
+      } else {
+        // --- プレミアム・オフィス背景 (プログラム描画) ---
+        // 1. 床 (丸の内ブルー・カーペット)
+        ctx.fillStyle = "#2c3e50";
+        ctx.fillRect(0, 40, 400, 800);
+        
+        // グリッド模様 (タイル)
+        ctx.strokeStyle = "rgba(255,255,255,0.05)";
+        ctx.lineWidth = 1;
+        for(let i=0; i<10; i++) {
+          ctx.beginPath();
+          ctx.moveTo(0, 40 + i*80); ctx.lineTo(400, 40 + i*80);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(i*40, 40); ctx.lineTo(i*40, 840);
+          ctx.stroke();
+        }
+
+        // 2. 上部エリア (役員席・パーティション)
+        ctx.fillStyle = "#34495e";
+        ctx.fillRect(0, 40, 400, 200);
+        ctx.fillStyle = "#1a252f";
+        ctx.fillRect(0, 235, 400, 5); // 境界線
+        
+        // 役員 (ボス) のデスク風
+        ctx.fillStyle = "#5d4037"; // 木目
+        ctx.fillRect(100, 80, 200, 100);
+        ctx.font = "60px serif";
+        ctx.textAlign = "center";
+        ctx.fillText("👨‍💼", 200, 140); // ラスボス（部長）
+        ctx.textAlign = "left";
+
+        // 3. 戦闘エリア (デスク島)
+        const deskColor = "#95a5a6";
+        const monitorColor = "#2c3e50";
+        
+        for (let row = 0; row < 3; row++) {
+          let y = 280 + row * 130;
+          // デスク
+          ctx.fillStyle = deskColor;
+          ctx.fillRect(30, y, 340, 60);
+          ctx.fillStyle = "#7f8c8d";
+          ctx.fillRect(30, y+55, 340, 5); // 影
+          
+          // モニターと書類
+          for (let col = 0; col < 3; col++) {
+            let x = 60 + col * 110;
+            // モニター
+            ctx.fillStyle = monitorColor;
+            ctx.fillRect(x, y+10, 40, 30);
+            ctx.fillStyle = "#34495e";
+            ctx.fillRect(x+15, y+40, 10, 10); // スタンド
+            // 書類
+            ctx.fillStyle = "white";
+            ctx.fillRect(x+50, y+20, 15, 20);
+          }
+        }
+        
+        // 4. 下部エリア (自分の席)
+        ctx.fillStyle = "#34495e";
+        ctx.fillRect(0, 660, 400, 140);
+        ctx.fillStyle = "#5d4037";
+        ctx.fillRect(50, 680, 300, 60); // 自分のデスク
+      }
 
       ctx.globalAlpha = 1.0;
 
       // プレイヤー (👯‍♀️)
+      ctx.textAlign = "center";
       ctx.font = "40px serif";
-      ctx.fillText(emojis.bunny, player.x - 10, player.y + 30);
+      ctx.fillText(emojis.bunny, player.x, player.y + 25);
+      ctx.textAlign = "left";
 
       // 弾 (💴 札束)
       ctx.font = "20px serif";
