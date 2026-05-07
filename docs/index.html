@@ -5,6 +5,11 @@
   <meta charset="UTF-8">
   <title>SUSHIVADER</title>
   <style>
+    @font-face {
+      font-family: 'MisakiGothic';
+      src: url('https://cdn.leafscape.be/misaki/misaki_gothic_web.woff2') format('woff2');
+    }
+
     body {
       margin: 0;
       background: #111;
@@ -12,7 +17,7 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      font-family: sans-serif;
+      font-family: 'MisakiGothic', sans-serif;
       overflow: hidden;
     }
 
@@ -56,7 +61,6 @@
       text-align: center;
       font-size: 28px;
       /* 小さく調整 */
-      font-weight: 900;
       text-shadow: 0 0 10px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 0, 0, 0.8);
       background: rgba(0, 0, 0, 0.7);
       padding: 15px 20px;
@@ -92,15 +96,54 @@
     const ctx = canvas.getContext("2d");
 
     const bgImg = new Image();
-    bgImg.src = "bg.png";
+    bgImg.src = "images/sushibg.jpg";
 
-    // アイコン（絵文字を使用）
-    const emojis = {
-      chef: "🧑‍🍳",
-      sushi: "🍣",
-      money: "💴",
-      bunny: "👱‍♀️"
+    const officeBgImg = new Image();
+    officeBgImg.src = "images/officebg.jpg";
+
+    // アセットの読み込み
+    const assets = {
+      chef: new Image(),
+      money: new Image(),
+      bunny: new Image(),
+      boss: new Image(),
+      paper: new Image(),
+      pc: new Image(),
+      woman2: new Image(),
+      life: new Image()
     };
+
+    const sushiAssets = [
+      { img: new Image(), pts: 10, src: "egg.png" },
+      { img: new Image(), pts: 20, src: "tuna.png" },
+      { img: new Image(), pts: 30, src: "salmon.png" },
+      { img: new Image(), pts: 40, src: "ikura.png" },
+      { img: new Image(), pts: 50, src: "uni.png" }
+    ];
+
+    function loadAssets() {
+      assets.chef.src = "images/itamae.png";
+      assets.money.src = "images/money.png";
+      assets.bunny.src = "images/woman1.png";
+      
+      assets.boss.src = "images/boss.png";
+      assets.paper.src = "images/paper.png";
+      assets.pc.src = "images/pc.png";
+      assets.woman2.src = "images/woman2.png";
+      assets.life.src = "images/life.png";
+
+      sushiAssets.forEach(s => s.img.src = "images/" + s.src);
+    }
+
+    loadAssets();
+
+    // 画像描画のヘルパー（アスペクト比を維持）
+    function drawSprite(img, x, y, targetWidth) {
+      if (!img.complete || !img.naturalWidth) return;
+      const ratio = img.naturalHeight / img.naturalWidth;
+      const targetHeight = targetWidth * ratio;
+      ctx.drawImage(img, x - targetWidth / 2, y - targetHeight / 2, targetWidth, targetHeight);
+    }
 
     let player, bullets, enemyBullets, enemies, boss;
     let keys = {};
@@ -268,11 +311,7 @@
       stage = 1; // 裏ステージ1から
       score = 0;
 
-      // アイコン変更
-      emojis.chef = "👨‍💼";
-      emojis.sushi = "📃";
-      emojis.money = "💻";
-      emojis.bunny = "🧑‍💼";
+      // 隠しステージ用の設定は draw 内で assets を切り替えて対応
 
       showStage();
     }
@@ -401,7 +440,7 @@
       if (player.x > 400) player.x = 400;
 
       bullets.forEach(b => b.y -= 7);
-      enemyBullets.forEach(b => b.y += 3);
+      enemyBullets.forEach(b => b.y += 1.8); // スピードを遅く (3 -> 1.8)
 
       // 敵の独立したランダム移動 ＋ 下降
       enemies.forEach((e, ei) => {
@@ -429,10 +468,15 @@
           msgEl.style.display = "block";
         }
 
-        // ショット (裏ステージはさらに頻度アップ)
-        const shotProb = isHiddenStage ? 0.005 : 0.002;
-        if (Math.random() < shotProb + stage * 0.001) {
-          enemyBullets.push({ x: e.x, y: e.y + 10 });
+        // ショット (頻度をさらに大幅に低下)
+        const shotProb = isHiddenStage ? 0.001 : 0.0005;
+        if (Math.random() < shotProb + stage * 0.0002) {
+          if (!isHiddenStage) {
+            const s = sushiAssets[Math.floor(Math.random() * sushiAssets.length)];
+            enemyBullets.push({ x: e.x, y: e.y + 10, img: s.img, pts: s.pts });
+          } else {
+            enemyBullets.push({ x: e.x, y: e.y + 10, img: assets.paper, pts: 10 });
+          }
         }
       });
 
@@ -441,41 +485,57 @@
         boss.x += boss.vx;
         if (boss.x < 0 || boss.x > 300) boss.vx *= -1;
 
-        if (Math.random() < 0.015) {
-          enemyBullets.push({ x: boss.x + 40, y: boss.y });
+        if (Math.random() < 0.005) { // ボスの攻撃頻度も低下 (0.015 -> 0.005)
+          if (!isHiddenStage) {
+            const s = sushiAssets[Math.floor(Math.random() * sushiAssets.length)];
+            enemyBullets.push({ x: boss.x + 40, y: boss.y, img: s.img, pts: s.pts });
+          } else {
+            enemyBullets.push({ x: boss.x + 40, y: boss.y, img: assets.paper, pts: 10 });
+          }
         }
       }
 
-      // 自弾と敵の当たり判定
+      // 自弾と敵の当たり判定 (当たり判定を緩和)
       bullets.forEach((b, bi) => {
+        // 敵（シェフ）との判定
         enemies.forEach((e, ei) => {
-          if (b.x > e.x && b.x < e.x + 30 && b.y > e.y && b.y < e.y + 30) {
+          if (Math.abs(b.x - e.x) < 40 && Math.abs(b.y - e.y) < 40) {
             enemies.splice(ei, 1);
             bullets.splice(bi, 1);
             score += 10;
-            playHitSound(); // 当たり音
+            playHitSound(); 
           }
         });
 
-        if (boss && b.x > boss.x && b.x < boss.x + 80 && b.y > boss.y && b.y < boss.y + 80) {
+        // 敵の攻撃（お鮨・書類）を撃ってポイントゲット (攻撃は消えない)
+        enemyBullets.forEach((eb, ebi) => {
+          if (Math.abs(b.x - eb.x) < 30 && Math.abs(b.y - eb.y) < 30) {
+            score += eb.pts;
+            // enemyBullets.splice(ebi, 1); // ここをコメントアウト：敵の攻撃は消えない
+            bullets.splice(bi, 1); // 自分の弾は消える
+            playHitSound();
+          }
+        });
+
+        if (boss && b.x > boss.x && b.x < boss.x + boss.w && b.y > boss.y && b.y < boss.y + boss.h) {
           boss.hp -= 0.5;
           bullets.splice(bi, 1);
           score += 5;
-          playHitSound(); // 当たり音
+          playHitSound(); 
           shake = 10;
         }
       });
 
-      // 被弾
+      // 被弾 (お鮨・書類に当たるとダメージ)
       enemyBullets.forEach((b, bi) => {
-        if (Math.abs(b.x - player.x) < 20 && Math.abs(b.y - player.y) < 20) {
+        if (Math.abs(b.x - player.x) < 35 && Math.abs(b.y - player.y) < 35) {
           enemyBullets.splice(bi, 1);
           player.life--;
-          playDamageSound(); // ダメージ音
+          playDamageSound(); 
           shake = 15;
           if (player.life <= 0) {
             playing = false;
-            shake = 0; // 振動を止める
+            shake = 0;
             const msgEl = document.getElementById("msg");
             msgEl.innerHTML = "GAME OVER<br><span>TAP or R to RETRY</span>";
             msgEl.style.color = "#ff0000";
@@ -518,104 +578,41 @@
       ctx.clearRect(0, 0, 400, 800);
 
       if (!isHiddenStage) {
-        // お鮨屋背景
-        ctx.drawImage(bgImg, 0, 0, 1024, 350, 0, 40, 400, 200);
-        ctx.drawImage(bgImg, 0, 350, 1024, 300, 0, 240, 400, 400);
-        ctx.drawImage(bgImg, 0, 650, 1024, 374, 0, 640, 400, 200);
+        // お鮨屋背景 (sushibg.jpg を全体表示)
+        ctx.drawImage(bgImg, 0, 0, 400, 800);
       } else {
-        // --- プレミアム・オフィス背景 (プログラム描画) ---
-        // 1. 床 (丸の内ブルー・カーペット)
-        ctx.fillStyle = "#2c3e50";
-        ctx.fillRect(0, 40, 400, 800);
-        
-        // グリッド模様 (タイル)
-        ctx.strokeStyle = "rgba(255,255,255,0.05)";
-        ctx.lineWidth = 1;
-        for(let i=0; i<10; i++) {
-          ctx.beginPath();
-          ctx.moveTo(0, 40 + i*80); ctx.lineTo(400, 40 + i*80);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(i*40, 40); ctx.lineTo(i*40, 840);
-          ctx.stroke();
-        }
-
-        // 2. 上部エリア (役員席・パーティション)
-        ctx.fillStyle = "#34495e";
-        ctx.fillRect(0, 40, 400, 200);
-        ctx.fillStyle = "#1a252f";
-        ctx.fillRect(0, 235, 400, 5); // 境界線
-        
-        // 役員 (ボス) のデスク風
-        ctx.fillStyle = "#5d4037"; // 木目
-        ctx.fillRect(100, 80, 200, 100);
-        ctx.font = "60px serif";
-        ctx.textAlign = "center";
-        ctx.fillText("👨‍💼", 200, 140); // ラスボス（部長）
-        ctx.textAlign = "left";
-
-        // 3. 戦闘エリア (デスク島)
-        const deskColor = "#95a5a6";
-        const monitorColor = "#2c3e50";
-        
-        for (let row = 0; row < 3; row++) {
-          let y = 280 + row * 130;
-          // デスク
-          ctx.fillStyle = deskColor;
-          ctx.fillRect(30, y, 340, 60);
-          ctx.fillStyle = "#7f8c8d";
-          ctx.fillRect(30, y+55, 340, 5); // 影
-          
-          // モニターと書類
-          for (let col = 0; col < 3; col++) {
-            let x = 60 + col * 110;
-            // モニター
-            ctx.fillStyle = monitorColor;
-            ctx.fillRect(x, y+10, 40, 30);
-            ctx.fillStyle = "#34495e";
-            ctx.fillRect(x+15, y+40, 10, 10); // スタンド
-            // 書類
-            ctx.fillStyle = "white";
-            ctx.fillRect(x+50, y+20, 15, 20);
-          }
-        }
-        
-        // 4. 下部エリア (自分の席)
-        ctx.fillStyle = "#34495e";
-        ctx.fillRect(0, 660, 400, 140);
-        ctx.fillStyle = "#5d4037";
-        ctx.fillRect(50, 680, 300, 60); // 自分のデスク
+        // オフィス背景 (officebg.jpg を全体表示)
+        ctx.drawImage(officeBgImg, 0, 0, 400, 800);
       }
 
       ctx.globalAlpha = 1.0;
 
-      // プレイヤー (👯‍♀️)
-      ctx.textAlign = "center";
-      ctx.font = "40px serif";
-      ctx.fillText(emojis.bunny, player.x, player.y + 25);
-      ctx.textAlign = "left";
+      // プレイヤー
+      const pImg = isHiddenStage ? assets.woman2 : assets.bunny;
+      drawSprite(pImg, player.x, player.y, 100); // さらに大きく (80 -> 100)
 
-      // 弾 (💴 札束)
-      ctx.font = "20px serif";
+      // 弾
+      const bImg = isHiddenStage ? assets.pc : assets.money;
       bullets.forEach(b => {
-        ctx.fillText(emojis.money, b.x - 10, b.y + 10);
+        drawSprite(bImg, b.x, b.y, 50); // さらに大きく (40 -> 50)
       });
 
-      // 敵弾 (🍣 寿司)
+      // 敵弾 (お鮨・書類)
       enemyBullets.forEach(b => {
-        ctx.fillText(emojis.sushi, b.x - 10, b.y + 10);
+        if (b.img) {
+          drawSprite(b.img, b.x, b.y, 60); // さらに大きく (40 -> 60)
+        }
       });
 
-      // 敵 (🧑‍🍳 寿司職人)
-      ctx.font = "30px serif";
+      // 敵
+      const eImg = isHiddenStage ? assets.boss : assets.chef;
       enemies.forEach(e => {
-        ctx.fillText(emojis.chef, e.x - 5, e.y + 15);
+        drawSprite(eImg, e.x, e.y, 60); // サイズを大きく (40 -> 60)
       });
 
       // ボス
       if (boss) {
-        ctx.font = "80px serif";
-        ctx.fillText(emojis.chef, boss.x - 10, boss.y + 40);
+        drawSprite(eImg, boss.x + boss.w / 2, boss.y + boss.h / 2, 150); 
       }
 
       // UI (上部の黒い帯を広げる)
@@ -624,7 +621,7 @@
 
       // ボスHPバー (黒帯の上に描画 - 横並びレイアウト)
       if (boss) {
-        ctx.font = "bold 16px sans-serif";
+        ctx.font = "16px 'MisakiGothic'";
         ctx.fillStyle = "#ffff00";
         ctx.textAlign = "left";
         ctx.fillText("BOSS HP", 10, 65);
@@ -642,21 +639,23 @@
         ctx.strokeRect(barX, barY, barW, barH);
 
         // 数値表示 (バーの上に重ねるか、右端に)
-        ctx.font = "bold 12px sans-serif";
+        ctx.font = "12px 'MisakiGothic'";
         ctx.fillStyle = "white";
         ctx.textAlign = "center";
         ctx.fillText(Math.ceil(boss.hp) + " / " + boss.maxHp, barX + barW / 2, barY + 12);
         ctx.textAlign = "left";
       }
 
-      ctx.font = "bold 22px sans-serif";
+      ctx.font = "20px 'MisakiGothic'";
       ctx.fillStyle = "white";
       ctx.shadowColor = "black";
       ctx.shadowBlur = 4;
 
       ctx.textAlign = "left";
       ctx.fillText("LIFE: ", 10, 32);
-      ctx.fillText("❤️".repeat(player.life), 75, 32);
+      for (let i = 0; i < player.life; i++) {
+        drawSprite(assets.life, 85 + i * 25, 25, 30);
+      }
 
       ctx.textAlign = "right";
       ctx.fillText("SCORE: " + score, 390, 32);
