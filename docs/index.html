@@ -231,15 +231,23 @@
     function unlockAudio() {
       try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // iOS Safari用の最強の解禁方法: 空のバッファを再生
+        const buffer = audioCtx.createBuffer(1, 1, 22050);
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start(0);
+
         if (audioCtx.state === 'suspended') audioCtx.resume();
         silentAudio.play().catch(() => {});
+        
+        // 念のためのダミー音
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         gain.gain.value = 0.001;
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(0);
-        osc.stop(audioCtx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(0); osc.stop(audioCtx.currentTime + 0.1);
       } catch (e) { console.error(e); }
     }
 
@@ -302,7 +310,8 @@
           setTimeout(playNextNote, 150);
         }
       }
-      playNextNote();
+      // 最初の音を出す前に少しだけ（100ms）待って、エンジンの準備を確実にする
+      setTimeout(playNextNote, 100);
     }
 
     // --- ロジック ---
