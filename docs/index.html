@@ -317,17 +317,18 @@
         const gain = audioCtx.createGain();
         
         if (!isHiddenStage) {
-          osc.type = "sine";
+          // --- お鮨屋：和風で温かみのある音 ---
+          osc.type = "triangle"; // sine より聞き取りやすい
           osc.frequency.setValueAtTime(notes[noteIdx], audioCtx.currentTime);
           gain.gain.setValueAtTime(0, audioCtx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.1); // 0.02 -> 0.04
-          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+          gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.1); // さらに音量を上げる
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
           osc.connect(gain);
           gain.connect(audioCtx.destination);
           osc.start();
-          osc.stop(audioCtx.currentTime + 2.0);
+          osc.stop(audioCtx.currentTime + 1.5);
           noteIdx = (noteIdx + 1) % notes.length;
-          setTimeout(playNextNote, 1200 + Math.random() * 800);
+          setTimeout(playNextNote, 800 + Math.random() * 400); // テンポを少し速める
         } else {
           // --- オフィス：緊迫感のあるテクノ風 ---
           const tenseNotes = [110.00, 123.47, 130.81, 146.83];
@@ -482,9 +483,6 @@
 
     // タッチ・クリック入力 (レスポンシブ対応)
     function handlePointer(e) {
-      initAudio(); // ユーザー操作でオーディオ開始
-      startBGM();
-
       if (narrativeIdx >= 0) return;
 
       if (!playing) {
@@ -797,11 +795,12 @@
     // loop() は loadAssets 内で実行される
     
     // モバイル・Safari向けに複数のイベントで初期化を試行
-    ["touchstart", "click"].forEach(type => {
+    // preventDefault されないように window レベルで管理
+    ["touchstart", "touchend", "mousedown", "click"].forEach(type => {
       window.addEventListener(type, () => {
         initAudio();
         startBGM();
-      }, { once: false }); // 確実に動くまで何度か試行を許容
+      }, { passive: true }); // passive: true で干渉を防ぐ
     });
   </script>
 
