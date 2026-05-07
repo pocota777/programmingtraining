@@ -248,14 +248,14 @@
     let bgmOsc = null;
     let audioUnlocked = false;
 
-    async function initAudio() {
+    function initAudio() {
       try {
         if (!audioCtx) {
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
         
         if (audioCtx.state === 'suspended') {
-          await audioCtx.resume();
+          audioCtx.resume();
         }
       } catch (e) {
         console.error("Audio init error:", e);
@@ -263,8 +263,9 @@
     }
 
     // iPhone Safari unlock用
-    async function unlockAudio() {
-      await initAudio();
+    function unlockAudio() {
+      initAudio();
+      if (!audioCtx) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "sine";
@@ -276,10 +277,10 @@
       osc.stop(audioCtx.currentTime + 0.05);
     }
 
-    async function firstInteraction() {
+    function firstInteraction() {
       if (audioUnlocked) return;
       audioUnlocked = true;
-      await unlockAudio();
+      unlockAudio();
       startBGM();
     }
 
@@ -287,9 +288,9 @@
     window.addEventListener("mousedown", firstInteraction, { passive: true });
     window.addEventListener("click", firstInteraction, { passive: true });
 
-    async function playHitSound() {
+    function playHitSound() {
       if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "square";
@@ -303,9 +304,9 @@
       osc.stop(audioCtx.currentTime + 0.1);
     }
 
-    async function playDamageSound() {
+    function playDamageSound() {
       if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "sawtooth";
