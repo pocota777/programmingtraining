@@ -466,7 +466,7 @@
     // 入力
     window.addEventListener("keydown", e => {
       keys[e.code] = true;
-      firstInteraction();
+      firstInteraction(); // キー入力でも音声を解禁
       player.targetX = undefined;
 
       if (narrativeIdx >= 0) return;
@@ -492,6 +492,7 @@
     });
 
     function handlePointer(e) {
+      firstInteraction(); // 操作の瞬間に音声を解禁
       if (narrativeIdx >= 0) return;
 
       if (!playing) {
@@ -747,6 +748,13 @@
       draw();
       requestAnimationFrame(loop);
     }
+
+    // モバイル・Safari向けに複数のイベントで初期化を試行
+    ["touchstart", "touchend", "mousedown", "click"].forEach(type => {
+      window.addEventListener(type, () => {
+        firstInteraction();
+      }, { passive: true });
+    });
   </script>
 
 </body>
