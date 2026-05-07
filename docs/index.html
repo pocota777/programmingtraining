@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SUSHIVADER</title>
 
   <style>
@@ -20,11 +21,12 @@
       min-height: 100vh;
       font-family: 'MisakiGothic', sans-serif;
       overflow: hidden;
+      /* スクロール禁止 */
+      touch-action: none;
     }
 
     #game-container {
       position: relative;
-      /* PCでは画面の高さの90%程度にする */
       height: 90vh;
       aspect-ratio: 1 / 2;
       background: #000;
@@ -32,54 +34,57 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      overflow: hidden;
     }
 
     canvas {
       width: 100%;
       height: 100%;
       display: block;
-      touch-action: none;
     }
 
-    /* スマホ（縦長画面）用の調整 */
     @media (max-width: 600px) {
       #game-container {
         width: 100vw;
         height: 100vh;
-        max-width: none;
-        max-height: none;
         aspect-ratio: auto;
-        /* スマホでは画面いっぱいに */
       }
     }
 
-    #msg {
+    /* メッセージオーバーレイ (HTML要素にすることで音声解禁を確実にする) */
+    #msg-overlay {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      cursor: pointer;
+    }
+
+    #msg-content {
       color: #fff;
       text-align: center;
       font-size: 28px;
-      /* 小さく調整 */
-      text-shadow: 0 0 10px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 0, 0, 0.8);
-      background: rgba(0, 0, 0, 0.7);
-      padding: 15px 20px;
+      text-shadow: 0 0 10px #000, 0 0 20px #000;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 20px;
+      border: 4px solid #fff;
       border-radius: 10px;
-      border: 2px solid #fff;
-      pointer-events: none;
-      z-index: 100;
-      width: 90%;
-      /* 横幅制限 */
-      max-width: 360px;
-      box-sizing: border-box;
-      line-height: 1.2;
+      width: 80%;
+      max-width: 320px;
+      pointer-events: auto; /* ここをクリック可能に */
     }
 
-    #msg span {
+    #msg-content span {
       display: block;
       font-size: 18px;
-      margin-top: 10px;
+      margin-top: 15px;
       color: #ffcc00;
     }
 
@@ -98,26 +103,18 @@
       align-items: center;
       z-index: 1000;
     }
-    #loading-screen h2 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
+
     .loading-bar-container {
       width: 60%;
-      height: 24px;
-      border: 4px solid #fff;
-      padding: 4px;
-      box-sizing: content-box;
+      height: 20px;
+      border: 3px solid #fff;
+      padding: 3px;
     }
+
     #loading-bar {
       width: 0%;
       height: 100%;
       background: #00ffff;
-      transition: width 0.1s;
-    }
-    #loading-text {
-      margin-top: 10px;
-      font-size: 14px;
     }
   </style>
 </head>
@@ -132,29 +129,34 @@
       </div>
       <div id="loading-text">0%</div>
     </div>
+
+    <!-- 音声解禁のためのHTMLオーバーレイ -->
+    <div id="msg-overlay" style="display: none;">
+      <div id="msg-content"></div>
+    </div>
+
     <canvas id="game" width="400" height="800"></canvas>
-    <div id="msg" class="screen"></div>
   </div>
+
+  <!-- Safari向けの隠し音声要素 -->
+  <audio id="silent-audio" preload="auto">
+    <source src="data:audio/mpeg;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEgAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADYmFzZWxpbmUAbXA0MgAA/+7fAAAAAAAAAAAAAAA=" type="audio/mpeg">
+  </audio>
 
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
+    const msgOverlay = document.getElementById("msg-overlay");
+    const msgContent = document.getElementById("msg-content");
+    const silentAudio = document.getElementById("silent-audio");
 
     const bgImg = new Image();
     const officeBgImg = new Image();
-
-    // アセットの読み込み
     const assets = {
-      chef: new Image(),
-      money: new Image(),
-      bunny: new Image(),
-      boss: new Image(),
-      paper: new Image(),
-      pc: new Image(),
-      woman2: new Image(),
-      life: new Image()
+      chef: new Image(), money: new Image(), bunny: new Image(),
+      boss: new Image(), paper: new Image(), pc: new Image(),
+      woman2: new Image(), life: new Image()
     };
-
     const sushiAssets = [
       { img: new Image(), pts: 10, src: "egg.png" },
       { img: new Image(), pts: 20, src: "tuna.png" },
@@ -164,15 +166,7 @@
     ];
 
     function loadAssets() {
-      const sushiPromises = sushiAssets.map(s => {
-        return new Promise(resolve => {
-          s.img.onload = resolve;
-          s.img.onerror = resolve;
-          s.img.src = "images/" + s.src;
-        });
-      });
-
-      const otherImages = [
+      const allImages = [
         { img: bgImg, src: "images/sushibg.jpg" },
         { img: officeBgImg, src: "images/officebg.jpg" },
         { img: assets.chef, src: "images/itamae.png" },
@@ -182,44 +176,29 @@
         { img: assets.paper, src: "images/paper.png" },
         { img: assets.pc, src: "images/pc.png" },
         { img: assets.woman2, src: "images/woman2.png" },
-        { img: assets.life, src: "images/life.png" }
+        { img: assets.life, src: "images/life.png" },
+        ...sushiAssets
       ];
-
-      const otherPromises = otherImages.map(item => {
-        return new Promise(resolve => {
-          item.img.onload = resolve;
-          item.img.onerror = resolve;
-          item.img.src = item.src;
-        });
-      });
-
-      const allPromises = [...sushiPromises, ...otherPromises];
-      let loadedCount = 0;
-
-      allPromises.forEach(p => {
-        p.then(() => {
-          loadedCount++;
-          const percent = Math.floor((loadedCount / allPromises.length) * 100);
-          const bar = document.getElementById("loading-bar");
-          const text = document.getElementById("loading-text");
-          if (bar) bar.style.width = percent + "%";
-          if (text) text.innerText = percent + "%";
-        });
-      });
-
-      Promise.all(allPromises).then(() => {
-        setTimeout(() => {
-          const screen = document.getElementById("loading-screen");
-          if (screen) screen.style.display = "none";
-          showStage();
-          loop(); // 全て読み終わってからループ開始
-        }, 500);
+      let loaded = 0;
+      allImages.forEach(item => {
+        item.img.onload = item.img.onerror = () => {
+          loaded++;
+          const percent = Math.floor((loaded / allImages.length) * 100);
+          document.getElementById("loading-bar").style.width = percent + "%";
+          document.getElementById("loading-text").innerText = percent + "%";
+          if (loaded === allImages.length) {
+            setTimeout(() => {
+              document.getElementById("loading-screen").style.display = "none";
+              showStage();
+              loop();
+            }, 500);
+          }
+        };
+        item.img.src = item.src.includes("/") ? item.src : "images/" + item.src;
       });
     }
-
     loadAssets();
 
-    // 画像描画のヘルパー（アスペクト比を維持）
     function drawSprite(img, x, y, targetWidth) {
       if (!img.complete || !img.naturalWidth) return;
       const ratio = img.naturalHeight / img.naturalWidth;
@@ -227,66 +206,35 @@
       ctx.drawImage(img, x - targetWidth / 2, y - targetHeight / 2, targetWidth, targetHeight);
     }
 
-    let player = null;
-    let bullets = [], enemyBullets = [], enemies = [], boss = null;
-    let keys = {};
-    let stage = 1, score = 0;
-    let playing = false, waiting = true;
-    let shake = 0;
-    let isHiddenStage = false;
-    let isGameClear = false;
-    let canRetry = true;
-    let narrativeIdx = -1;
-    const narrativeLines = [
-      "思い出した…",
-      "私は丸の内で働く会社員…",
-      "こんなところでお鮨を食べている場合じゃなかった！"
-    ];
+    let player = null, bullets = [], enemyBullets = [], enemies = [], boss = null;
+    let keys = {}, stage = 1, score = 0, playing = false, waiting = true, shake = 0;
+    let isHiddenStage = false, isGameClear = false, canRetry = true, narrativeIdx = -1;
+    const narrativeLines = ["思い出した…", "私は丸の内で働く会社員…", "こんなところでお鮨を食べている場合じゃなかった！"];
 
-    // サウンド設定 (Web Audio API)
-    let audioCtx = null;
-    let bgmOsc = null;
-    let audioUnlocked = false;
+    // --- 音声システム (Safari鉄壁対策) ---
+    let audioCtx = null, bgmOsc = null;
 
-    function initAudio() {
-      try {
-        if (!audioCtx) {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
-      } catch (e) {
-        console.error("Audio init error:", e);
-      }
-    }
-
-    // iPhone Safari unlock用
     function unlockAudio() {
-      initAudio();
-      if (!audioCtx) return;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = 440;
-      gain.gain.value = 0.001; // 超小さい音
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.05);
-    }
+      try {
+        // 1. AudioContextの作成/再開
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
 
-    function firstInteraction() {
-      if (audioUnlocked) return;
-      audioUnlocked = true;
-      unlockAudio();
-      startBGM();
-    }
+        // 2. 標準Audio要素の再生 (Safariの伝統的ロック解除)
+        silentAudio.play().catch(() => {});
 
-    window.addEventListener("touchstart", firstInteraction, { passive: true });
-    window.addEventListener("mousedown", firstInteraction, { passive: true });
-    window.addEventListener("click", firstInteraction, { passive: true });
+        // 3. Web Audioでの無音再生 (User Activationの鮮度維持)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.001;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(0);
+        osc.stop(audioCtx.currentTime + 0.1);
+        
+        console.log("Audio Unlocked! State:", audioCtx.state);
+      } catch (e) { console.error(e); }
+    }
 
     function playHitSound() {
       if (!audioCtx) return;
@@ -300,8 +248,7 @@
       gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.1);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.1);
     }
 
     function playDamageSound() {
@@ -316,8 +263,7 @@
       gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.3);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.3);
     }
 
     function startBGM() {
@@ -325,26 +271,18 @@
       bgmOsc = true;
       const notes = [196.00, 220.00, 261.63, 293.66, 329.63];
       let noteIdx = 0;
-
       function playNextNote() {
-        if (!playing) {
-          setTimeout(playNextNote, 1000);
-          return;
-        }
-        
+        if (!playing) { setTimeout(playNextNote, 1000); return; }
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        
         if (!isHiddenStage) {
           osc.type = "triangle";
           osc.frequency.setValueAtTime(notes[noteIdx], audioCtx.currentTime);
           gain.gain.setValueAtTime(0, audioCtx.currentTime);
           gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.1);
           gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.start();
-          osc.stop(audioCtx.currentTime + 1.5);
+          osc.connect(gain); gain.connect(audioCtx.destination);
+          osc.start(); osc.stop(audioCtx.currentTime + 1.5);
           noteIdx = (noteIdx + 1) % notes.length;
           setTimeout(playNextNote, 800 + Math.random() * 400);
         } else {
@@ -353,10 +291,8 @@
           osc.frequency.setValueAtTime(tenseNotes[noteIdx % tenseNotes.length], audioCtx.currentTime);
           gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
           gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.start();
-          osc.stop(audioCtx.currentTime + 0.2);
+          osc.connect(gain); gain.connect(audioCtx.destination);
+          osc.start(); osc.stop(audioCtx.currentTime + 0.2);
           noteIdx++;
           setTimeout(playNextNote, 150);
         }
@@ -364,32 +300,23 @@
       playNextNote();
     }
 
-    // 初期化
+    // --- ゲームロジック ---
     function initStage() {
       if (stage === 1) {
         player = { x: 200, y: 600, w: 40, h: 40, speed: 10, life: 5, targetX: 200 };
         score = 0;
       }
-      player.y = 600;
-      player.x = 200;
-      player.targetX = undefined;
-      shake = 0;
-      bullets = [];
-      enemyBullets = [];
-      enemies = [];
-      boss = null;
-
+      player.y = 600; player.x = 200; player.targetX = undefined;
+      shake = 0; bullets = []; enemyBullets = []; enemies = []; boss = null;
       if (stage < 4) {
         const countMult = isHiddenStage ? 1.5 : 1;
         const speedMult = isHiddenStage ? 1.4 : 1;
-
         for (let i = 0; i < Math.floor((5 + stage * 2) * countMult); i++) {
           enemies.push({
-            x: Math.random() * 340 + 30,
-            y: 250 + Math.random() * 50, // テーブルの上部から開始
+            x: Math.random() * 340 + 30, y: 250 + Math.random() * 50,
             vx: (Math.random() - 0.5) * (1 + stage * 0.3) * speedMult,
             vy: (Math.random() - 0.5) * (1 + stage * 0.3) * speedMult,
-            downSpeed: (0.1 + stage * 0.05) * speedMult // 徐々に下がるスピード
+            downSpeed: (0.1 + stage * 0.05) * speedMult
           });
         }
       } else {
@@ -398,184 +325,110 @@
       }
     }
 
-    // 裏ステージへの移行
+    function showStage() {
+      initStage(); playing = false; waiting = true;
+      msgOverlay.style.display = "flex";
+      if (stage < 4) {
+        msgContent.innerHTML = `STAGE ${stage}<br><span>TAP or SPACEで開始</span>`;
+        msgContent.style.color = "#fff"; msgContent.style.borderColor = "#fff";
+      } else {
+        msgContent.innerHTML = `FINAL STAGE<br><span>TAP or SPACEで最終決戦</span>`;
+        msgContent.style.color = "#ff3300"; msgContent.style.borderColor = "#ff3300";
+      }
+    }
+
     function startHiddenStageTransition() {
-      playing = false;
-      narrativeIdx = 0;
-      showNarrative();
+      playing = false; narrativeIdx = 0; showNarrative();
     }
 
     function showNarrative() {
-      const msgEl = document.getElementById("msg");
-      msgEl.innerHTML = narrativeLines[narrativeIdx];
-      msgEl.style.color = "white";
-      msgEl.style.borderColor = "white";
-      msgEl.style.display = "block";
-
-      // 2秒後に自動で次へ
+      msgOverlay.style.display = "flex";
+      msgContent.innerHTML = narrativeLines[narrativeIdx];
+      msgContent.style.color = "#fff"; msgContent.style.borderColor = "#fff";
       setTimeout(nextNarrative, 2000);
     }
 
     function nextNarrative() {
       if (narrativeIdx === -1) return;
       narrativeIdx++;
-      if (narrativeIdx < narrativeLines.length) {
-        showNarrative();
-      } else {
-        narrativeIdx = -1;
-        initHiddenStage();
-      }
+      if (narrativeIdx < narrativeLines.length) showNarrative();
+      else { narrativeIdx = -1; isHiddenStage = true; stage = 1; score = 0; showStage(); }
     }
 
-    function initHiddenStage() {
-      isHiddenStage = true;
-      stage = 1;
-      score = 0;
-      showStage();
-    }
-
-    // リトライ処理
     function handleRetry() {
       if (!canRetry) return;
-      if (isGameClear) {
-        location.reload();
-      } else if (isHiddenStage) {
-        initHiddenStage();
-      } else {
-        location.reload();
-      }
+      if (isGameClear || !isHiddenStage) location.reload();
+      else { isHiddenStage = true; stage = 1; score = 0; showStage(); }
     }
 
-    // ステージ表示
-    function showStage() {
-      initStage();
-      playing = false;
-      waiting = true;
-
-      const msgEl = document.getElementById("msg");
-      if (stage < 4) {
-        msgEl.innerHTML = `STAGE ${stage}<br><span>TAP or SPACEで開始</span>`;
-        msgEl.style.color = "white";
-      } else {
-        msgEl.innerHTML = `FINAL STAGE<br><span>TAP or SPACEで最終決戦</span>`;
-        msgEl.style.color = "#ff3300";
-        msgEl.style.borderColor = "#ff3300";
-      }
-      msgEl.style.display = "block";
-    }
-
-    // 入力
-    window.addEventListener("keydown", e => {
-      keys[e.code] = true;
-      firstInteraction(); // キー入力でも音声を解禁
-      player.targetX = undefined;
-
+    // --- 入力制御 ---
+    function onInteraction() {
+      unlockAudio();
+      startBGM();
       if (narrativeIdx >= 0) return;
-
-      if (!playing && e.code === "KeyR") {
-        handleRetry();
-      }
-    });
-
-    window.addEventListener("keyup", e => {
-      if (e.code === "Space") {
-        if (waiting) {
-          waiting = false;
-          playing = true;
-          document.getElementById("msg").style.display = "none";
-          return;
-        }
-        if (playing) {
-          bullets.push({ x: player.x + 10, y: player.y });
-        }
-      }
-      keys[e.code] = false;
-    });
-
-    function handlePointer(e) {
-      firstInteraction(); // 操作の瞬間に音声を解禁
-      if (narrativeIdx >= 0) return;
-
       if (!playing) {
         if (waiting) {
-          waiting = false;
-          playing = true;
-          document.getElementById("msg").style.display = "none";
-          return;
+          waiting = false; playing = true;
+          msgOverlay.style.display = "none";
         } else {
           handleRetry();
-          return;
-        }
-      }
-
-      if (e.type === "touchstart" || e.type === "touchmove" || e.type === "mousemove") {
-        const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const x = (clientX - rect.left) * (canvas.width / rect.width);
-        player.targetX = x;
-
-        if (playing && Math.random() < 0.2) {
-          bullets.push({ x: player.x + 10, y: player.y });
         }
       }
     }
 
-    canvas.addEventListener("touchstart", e => { e.preventDefault(); handlePointer(e); }, { passive: false });
-    canvas.addEventListener("touchmove", e => { e.preventDefault(); handlePointer(e); }, { passive: false });
-    
-    canvas.addEventListener("mousedown", e => {
-      if (!playing) {
-        handlePointer(e);
-      }
+    // オーバーレイをクリックした時 (これが一番確実に音声解禁される)
+    msgOverlay.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onInteraction();
     });
 
-    function hit() {
-      shake = 8;
-    }
+    window.addEventListener("keydown", e => {
+      keys[e.code] = true;
+      onInteraction();
+      if (e.code === "Space" && playing) bullets.push({ x: player.x + 10, y: player.y });
+    });
+    window.addEventListener("keyup", e => { keys[e.code] = false; });
+
+    canvas.addEventListener("touchstart", e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
+      if (playing && Math.random() < 0.2) bullets.push({ x: player.x + 10, y: player.y });
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
+    }, { passive: false });
 
     function update() {
       bullets = bullets.filter(b => b.y > 0);
       enemyBullets = enemyBullets.filter(b => b.y < 800);
-
       if (shake > 0) shake *= 0.9;
-
       if (!playing) return;
 
       if (keys["ArrowLeft"]) player.x -= player.speed;
       if (keys["ArrowRight"]) player.x += player.speed;
-
-      if (player.targetX !== undefined) {
-        player.x = player.targetX;
-      }
-
-      if (player.x < 0) player.x = 0;
-      if (player.x > 400) player.x = 400;
+      if (player.targetX !== undefined) player.x = player.targetX;
+      if (player.x < 0) player.x = 0; if (player.x > 400) player.x = 400;
 
       bullets.forEach(b => b.y -= 7);
       enemyBullets.forEach(b => b.y += 1.8);
 
       enemies.forEach((e, ei) => {
-        e.x += e.vx;
-        e.y += e.vy + e.downSpeed;
-
+        e.x += e.vx; e.y += e.vy + e.downSpeed;
         if (e.x < 20 || e.x > 380) e.vx *= -1;
         if (e.y < 240 || e.y > 600) e.vy *= -1;
-
         if (Math.random() < 0.02) {
           e.vx = (Math.random() - 0.5) * (1 + stage * 0.4);
           e.vy = (Math.random() - 0.5) * (1 + stage * 0.4);
         }
-
         if (e.y > 610) {
-          playing = false;
-          shake = 0;
-          const msgEl = document.getElementById("msg");
-          msgEl.innerHTML = "INVASION!<br>GAME OVER<br><span>TAP or R to RETRY</span>";
-          msgEl.style.color = "#ff0000";
-          msgEl.style.borderColor = "#ff0000";
-          msgEl.style.display = "block";
+          playing = false; msgOverlay.style.display = "flex";
+          msgContent.innerHTML = "INVASION!<br>GAME OVER<br><span>TAP or R to RETRY</span>";
+          msgContent.style.color = "#ff0000"; msgContent.style.borderColor = "#ff0000";
         }
-
         const shotProb = isHiddenStage ? 0.001 : 0.0005;
         if (Math.random() < shotProb + stage * 0.0002) {
           if (!isHiddenStage) {
@@ -588,9 +441,7 @@
       });
 
       if (boss) {
-        boss.x += boss.vx;
-        if (boss.x < 0 || boss.x > 300) boss.vx *= -1;
-
+        boss.x += boss.vx; if (boss.x < 0 || boss.x > 300) boss.vx *= -1;
         if (Math.random() < 0.005) {
           if (!isHiddenStage) {
             const s = sushiAssets[Math.floor(Math.random() * sushiAssets.length)];
@@ -604,160 +455,81 @@
       bullets.forEach((b, bi) => {
         enemies.forEach((e, ei) => {
           if (Math.abs(b.x - e.x) < 40 && Math.abs(b.y - e.y) < 40) {
-            enemies.splice(ei, 1);
-            bullets.splice(bi, 1);
-            score += 10;
-            playHitSound(); 
+            enemies.splice(ei, 1); bullets.splice(bi, 1); score += 10; playHitSound();
           }
         });
-
         enemyBullets.forEach((eb, ebi) => {
           if (Math.abs(b.x - eb.x) < 30 && Math.abs(b.y - eb.y) < 30) {
-            score += eb.pts;
-            bullets.splice(bi, 1);
-            playHitSound();
+            score += eb.pts; bullets.splice(bi, 1); playHitSound();
           }
         });
-
         if (boss && b.x > boss.x && b.x < boss.x + boss.w && b.y > boss.y && b.y < boss.y + boss.h) {
-          boss.hp -= 0.5;
-          bullets.splice(bi, 1);
-          score += 5;
-          playHitSound(); 
-          shake = 10;
+          boss.hp -= 0.5; bullets.splice(bi, 1); score += 5; playHitSound(); shake = 10;
         }
       });
 
       enemyBullets.forEach((b, bi) => {
         if (Math.abs(b.x - player.x) < 35 && Math.abs(b.y - player.y) < 35) {
-          enemyBullets.splice(bi, 1);
-          player.life--;
-          playDamageSound(); 
-          shake = 15;
+          enemyBullets.splice(bi, 1); player.life--; playDamageSound(); shake = 15;
           if (player.life <= 0) {
-            playing = false;
-            shake = 0;
-            const msgEl = document.getElementById("msg");
-            msgEl.innerHTML = "GAME OVER<br><span>TAP or R to RETRY</span>";
-            msgEl.style.color = "#ff0000";
-            msgEl.style.borderColor = "#ff0000";
-            msgEl.style.display = "block";
+            playing = false; msgOverlay.style.display = "flex";
+            msgContent.innerHTML = "GAME OVER<br><span>TAP or R to RETRY</span>";
+            msgContent.style.color = "#ff0000"; msgContent.style.borderColor = "#ff0000";
           }
         }
       });
 
-      if (enemies.length === 0 && !boss) {
-        stage++;
-        showStage();
-      }
-
+      if (enemies.length === 0 && !boss) { stage++; showStage(); }
       if (boss && boss.hp <= 0) {
         playing = false;
-        shake = 0;
-        if (!isHiddenStage) {
-          startHiddenStageTransition();
-        } else {
-          isGameClear = true;
-          canRetry = false;
-          const msgEl = document.getElementById("msg");
-          msgEl.innerHTML = "ALL MISSIONS COMPLETE<br><span>仕事に戻ります…</span>";
-          msgEl.style.color = "#00ffff";
-          msgEl.style.borderColor = "#00ffff";
-          msgEl.style.display = "block";
-
-          setTimeout(() => {
-            canRetry = true;
-            msgEl.innerHTML = "ALL MISSIONS COMPLETE<br><span>RETRY TAP or R</span>";
-          }, 5000);
+        if (!isHiddenStage) startHiddenStageTransition();
+        else {
+          isGameClear = true; canRetry = false; msgOverlay.style.display = "flex";
+          msgContent.innerHTML = "ALL MISSIONS COMPLETE<br><span>仕事に戻ります…</span>";
+          msgContent.style.color = "#00ffff"; msgContent.style.borderColor = "#00ffff";
+          setTimeout(() => { canRetry = true; msgContent.innerHTML = "ALL MISSIONS COMPLETE<br><span>RETRY TAP or R</span>"; }, 5000);
         }
       }
     }
 
     function draw() {
       ctx.save();
-      if (shake > 0) {
-        ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
-      }
+      if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
       ctx.clearRect(0, 0, 400, 800);
-      if (!isHiddenStage) {
-        ctx.drawImage(bgImg, 0, 0, 400, 800);
-      } else {
-        ctx.drawImage(officeBgImg, 0, 0, 400, 800);
-      }
+      if (!isHiddenStage) ctx.drawImage(bgImg, 0, 0, 400, 800);
+      else ctx.drawImage(officeBgImg, 0, 0, 400, 800);
       ctx.globalAlpha = 1.0;
       if (player) {
         const pImg = isHiddenStage ? assets.woman2 : assets.bunny;
         drawSprite(pImg, player.x, player.y, 100);
         const bImg = isHiddenStage ? assets.pc : assets.money;
-        bullets.forEach(b => {
-          drawSprite(bImg, b.x, b.y, 50);
-        });
+        bullets.forEach(b => drawSprite(bImg, b.x, b.y, 50));
       }
-      enemyBullets.forEach(b => {
-        if (b.img) {
-          drawSprite(b.img, b.x, b.y, 60);
-        }
-      });
+      enemyBullets.forEach(b => { if (b.img) drawSprite(b.img, b.x, b.y, 60); });
       const eImg = isHiddenStage ? assets.boss : assets.chef;
-      enemies.forEach(e => {
-        drawSprite(eImg, e.x, e.y, 60);
-      });
-      if (boss) {
-        drawSprite(eImg, boss.x + boss.w / 2, boss.y + boss.h / 2, 150); 
-      }
-      ctx.fillStyle = "rgba(0,0,0,0.85)";
-      ctx.fillRect(0, 0, 400, 80);
+      enemies.forEach(e => drawSprite(eImg, e.x, e.y, 60));
+      if (boss) drawSprite(eImg, boss.x + boss.w / 2, boss.y + boss.h / 2, 150);
+      ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(0, 0, 400, 80);
       if (player) {
-        ctx.textAlign = "left";
-        ctx.font = "20px 'MisakiGothic'";
-        ctx.fillStyle = "white";
+        ctx.textAlign = "left"; ctx.font = "20px 'MisakiGothic'"; ctx.fillStyle = "white";
         ctx.fillText("LIFE: ", 10, 32);
-        for (let i = 0; i < player.life; i++) {
-          drawSprite(assets.life, 85 + i * 25, 25, 30);
-        }
+        for (let i = 0; i < player.life; i++) drawSprite(assets.life, 85 + i * 25, 25, 30);
       }
-      ctx.textAlign = "right";
-      ctx.font = "20px 'MisakiGothic'";
-      ctx.fillStyle = "white";
+      ctx.textAlign = "right"; ctx.font = "20px 'MisakiGothic'"; ctx.fillStyle = "white";
       ctx.fillText("SCORE: " + score, 390, 32);
       if (boss) {
-        ctx.font = "16px 'MisakiGothic'";
-        ctx.fillStyle = "#ffff00";
-        ctx.textAlign = "left";
-        ctx.fillText("BOSS HP", 10, 65);
+        ctx.font = "16px 'MisakiGothic'"; ctx.fillStyle = "#ffff00"; ctx.textAlign = "left"; ctx.fillText("BOSS HP", 10, 65);
         const barX = 100, barY = 52, barW = 290, barH = 16;
-        ctx.fillStyle = "#444";
-        ctx.fillRect(barX, barY, barW, barH);
-        ctx.fillStyle = "#ff2222";
-        ctx.fillRect(barX, barY, barW * (boss.hp / boss.maxHp), barH);
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(barX, barY, barW, barH);
-        ctx.font = "12px 'MisakiGothic'";
-        ctx.fillStyle = "white";
-        ctx.textAlign = "center";
+        ctx.fillStyle = "#444"; ctx.fillRect(barX, barY, barW, barH);
+        ctx.fillStyle = "#ff2222"; ctx.fillRect(barX, barY, barW * (boss.hp / boss.maxHp), barH);
+        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.strokeRect(barX, barY, barW, barH);
+        ctx.font = "12px 'MisakiGothic'"; ctx.fillStyle = "white"; ctx.textAlign = "center";
         ctx.fillText(Math.ceil(boss.hp) + " / " + boss.maxHp, barX + barW / 2, barY + 12);
-        ctx.textAlign = "left";
       }
-      ctx.shadowBlur = 0;
-      ctx.textAlign = "left";
       ctx.restore();
     }
 
-    function loop() {
-      update();
-      draw();
-      requestAnimationFrame(loop);
-    }
-
-    // モバイル・Safari向けに複数のイベントで初期化を試行
-    ["touchstart", "touchend", "mousedown", "click"].forEach(type => {
-      window.addEventListener(type, () => {
-        firstInteraction();
-      }, { passive: true });
-    });
+    function loop() { update(); draw(); requestAnimationFrame(loop); }
   </script>
-
 </body>
-
 </html>
