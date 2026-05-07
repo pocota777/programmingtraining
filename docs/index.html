@@ -209,6 +209,7 @@
     let keys = {}, stage = 1, score = 0, playing = false, waiting = true, shake = 0;
     let isHiddenStage = false, isGameClear = false, canRetry = true, narrativeIdx = -1;
     let isTouching = false; // 連射のためのタッチフラグ
+    let isWaitingForRelease = false; // ステージ開始時に指を離すのを待つフラグ
     const narrativeLines = ["思い出した…", "私は丸の内で働く会社員…", "こんなところでお鮨を食べている場合じゃなかった！"];
 
     // --- 音声システム ---
@@ -231,7 +232,7 @@
 
     function playHitSound() {
       if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      audioCtx.resume(); // 常にresumeを試行して生存確認
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "square";
@@ -245,7 +246,7 @@
 
     function playDamageSound() {
       if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      audioCtx.resume(); // 常にresumeを試行して生存確認
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "sawtooth";
@@ -318,7 +319,14 @@
 
     function showStage() {
       initStage(); playing = false; waiting = true;
+      
+      // スマホで指を置いたままの場合は離すのを待つ
+      if (isTouching) {
+        isWaitingForRelease = true;
+      }
+
       msgOverlay.style.display = "flex";
+      
       if (stage < 4) {
         msgContent.innerHTML = `STAGE ${stage}<br><span>TAP or SPACEで開始</span>`;
         msgContent.style.color = "#fff"; msgContent.style.borderColor = "#fff";
@@ -352,10 +360,12 @@
     }
 
     function onInteraction(isTouch) {
+      if (isWaitingForRelease && isTouch) return; // 指を離すのを待っている間は無視
+      
       unlockAudio();
+      if (audioCtx) audioCtx.resume(); // 強制的に生存確認
       startBGM();
-      if (isTouch) isTouching = true; // タッチの時だけ連射を即座に有効にする
-      if (narrativeIdx >= 0) return;
+      if (isTouch) isTouching = true;
       if (!playing) {
         if (waiting) {
           waiting = false; playing = true;
@@ -375,7 +385,10 @@
       }
       onInteraction(true);
     }, { passive: false });
-    msgOverlay.addEventListener("touchend", () => { isTouching = false; });
+    msgOverlay.addEventListener("touchend", () => { 
+      isTouching = false; 
+      isWaitingForRelease = false; // 指を離したので次へ進める
+    });
     window.addEventListener("mouseup", () => { isTouching = false; });
 
     window.addEventListener("keydown", e => {
