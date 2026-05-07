@@ -263,7 +263,7 @@
     }
 
     function playHitSound() {
-      if (!audioCtx || audioCtx.state !== 'running') return;
+      if (!audioCtx) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "square";
@@ -278,7 +278,7 @@
     }
 
     function playDamageSound() {
-      if (!audioCtx || audioCtx.state !== 'running') return;
+      if (!audioCtx) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "sawtooth";
@@ -293,7 +293,7 @@
     }
 
     function startBGM() {
-      if (!audioCtx || audioCtx.state !== 'running' || bgmOsc) return;
+      if (!audioCtx || bgmOsc) return;
       bgmOsc = true;
       const notes = [196.00, 220.00, 261.63, 293.66, 329.63];
       let noteIdx = 0;
@@ -304,11 +304,7 @@
           return;
         }
         
-        if (audioCtx.state !== 'running') {
-          bgmOsc = false; // 止まってしまったら再開できるように
-          return;
-        }
-
+        // Contextが停止していてもOSCは作成してOK (Resume後に鳴り出す)
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         
