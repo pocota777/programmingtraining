@@ -151,6 +151,8 @@
     let playing = false, waiting = true;
     let shake = 0;
     let isHiddenStage = false;
+    let isGameClear = false;
+    let canRetry = true;
     let narrativeIdx = -1;
     const narrativeLines = [
       "思い出した…",
@@ -318,7 +320,10 @@
 
     // リトライ処理
     function handleRetry() {
-      if (isHiddenStage) {
+      if (!canRetry) return;
+      if (isGameClear) {
+        location.reload(); // クリア後は最初から
+      } else if (isHiddenStage) {
         initHiddenStage();
       } else {
         location.reload();
@@ -558,11 +563,19 @@
         if (!isHiddenStage) {
           startHiddenStageTransition();
         } else {
+          isGameClear = true;
+          canRetry = false; // 5秒間リトライを禁止
           const msgEl = document.getElementById("msg");
           msgEl.innerHTML = "ALL MISSIONS COMPLETE<br><span>仕事に戻ります…</span>";
           msgEl.style.color = "#00ffff";
           msgEl.style.borderColor = "#00ffff";
           msgEl.style.display = "block";
+
+          // 5秒後にリトライ案内を表示し、リトライを許可
+          setTimeout(() => {
+            canRetry = true;
+            msgEl.innerHTML = "ALL MISSIONS COMPLETE<br><span>RETRY TAP or R</span>";
+          }, 5000);
         }
       }
     }
