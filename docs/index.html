@@ -253,6 +253,13 @@
       if (audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
+      
+      // サイレントバッファの再生 (iOS/Safariの強力なロック解除用)
+      const buffer = audioCtx.createBuffer(1, 1, 22050);
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+      source.start(0);
     }
 
     function playHitSound() {
