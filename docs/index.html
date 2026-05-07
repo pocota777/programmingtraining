@@ -247,19 +247,27 @@
     let bgmOsc = null;
 
     function initAudio() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // iOS Safari対策: 状態に関わらず resume を試行
+        if (audioCtx.resume) {
+          audioCtx.resume();
+        }
+
+        // 呼び出しごとに短い無音を流して物理的に「音を出す状態」を維持
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.001; 
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(0);
+        osc.stop(audioCtx.currentTime + 0.1);
+      } catch (e) {
+        console.error("Audio init error:", e);
       }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-      
-      // サイレントバッファの再生 (iOS/Safariの強力なロック解除用)
-      const buffer = audioCtx.createBuffer(1, 1, 22050);
-      const source = audioCtx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioCtx.destination);
-      source.start(0);
     }
 
     function playHitSound() {
@@ -788,11 +796,13 @@
     // 初期
     // loop() は loadAssets 内で実行される
     
-    // モバイル向けにタッチ開始時にもオーディオ初期化を試行
-    window.addEventListener("touchstart", () => {
-      initAudio();
-      startBGM();
-    }, { once: true });
+    // モバイル・Safari向けに複数のイベントで初期化を試行
+    ["touchstart", "click"].forEach(type => {
+      window.addEventListener(type, () => {
+        initAudio();
+        startBGM();
+      }, { once: false }); // 確実に動くまで何度か試行を許容
+    });
   </script>
 
 </body>
