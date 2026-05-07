@@ -294,9 +294,12 @@
 
     // --- ロジック ---
     function initStage() {
-      if (stage === 1) {
+      if (stage === 1 && !isHiddenStage) {
         player = { x: 200, y: 600, w: 40, h: 40, speed: 10, life: 5, targetX: 200 };
         score = 0;
+      } else if (stage === 1 && isHiddenStage) {
+        // オフィスステージ開始時はライフのみ回復、スコアは維持
+        player.life = 5;
       }
       player.y = 600; player.x = 200; player.targetX = undefined;
       shake = 0; bullets = []; enemyBullets = []; enemies = []; boss = null;
@@ -340,32 +343,53 @@
       playing = false; narrativeIdx = 0; showNarrative();
     }
 
+    let narrativeTimer = null;
     function showNarrative() {
+      if (narrativeTimer) clearTimeout(narrativeTimer);
       msgOverlay.style.display = "flex";
       msgContent.innerHTML = narrativeLines[narrativeIdx];
       msgContent.style.color = "#fff"; msgContent.style.borderColor = "#fff";
-      setTimeout(nextNarrative, 2000);
+      narrativeTimer = setTimeout(nextNarrative, 3000); // 3秒に変更して読みやすく
     }
 
     function nextNarrative() {
+      if (narrativeTimer) clearTimeout(narrativeTimer);
       if (narrativeIdx === -1) return;
       narrativeIdx++;
       if (narrativeIdx < narrativeLines.length) showNarrative();
-      else { narrativeIdx = -1; isHiddenStage = true; stage = 1; score = 0; showStage(); }
+      else { 
+        narrativeIdx = -1; 
+        isHiddenStage = true; 
+        stage = 1; 
+        showStage(); 
+      }
     }
 
     function handleRetry() {
       if (!canRetry) return;
-      location.reload();
+      if (isGameClear) {
+        // 全クリ後は最初（お鮨屋さん）から
+        location.reload();
+      } else if (isHiddenStage) {
+        // オフィスステージで負けた場合はオフィスの最初から
+        stage = 1;
+        showStage();
+      } else {
+        location.reload();
+      }
     }
 
     function onInteraction(isTouch) {
-      if (isWaitingForRelease && isTouch) return; // 指を離すのを待っている間は無視
+      if (isWaitingForRelease && isTouch) return; 
       
       unlockAudio();
-      if (audioCtx) audioCtx.resume(); // 強制的に生存確認
+      if (audioCtx) audioCtx.resume();
       startBGM();
       if (isTouch) isTouching = true;
+
+      // ナラティブ（文章）表示中の場合は一切の操作を無効化（スキップ防止）
+      if (narrativeIdx >= 0) return;
+
       if (!playing) {
         if (waiting) {
           waiting = false; playing = true;
@@ -392,6 +416,7 @@
     window.addEventListener("mouseup", () => { isTouching = false; });
 
     window.addEventListener("keydown", e => {
+      if (narrativeIdx >= 0) return; // ナラティブ中は入力を無視
       keys[e.code] = true;
       onInteraction();
       if (e.code === "Space" && playing) bullets.push({ x: player.x + 10, y: player.y });
