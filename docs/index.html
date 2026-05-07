@@ -404,18 +404,21 @@
     function onInteraction(isTouch) {
       if (isWaitingForRelease && isTouch) return; 
       
+      // 1. まず音声を叩き起こす
       unlockAudio();
       if (audioCtx) audioCtx.resume();
-      startBGM();
       if (isTouch) isTouching = true;
 
-      // ナラティブ（文章）表示中の場合は一切の操作を無効化（スキップ防止）
+      // 2. ナラティブ表示中は無視
       if (narrativeIdx >= 0) return;
 
+      // 3. ゲーム開始処理
       if (!playing) {
         if (waiting) {
-          waiting = false; playing = true;
+          waiting = false; 
+          playing = true; // 先にplayingをtrueにする
           msgOverlay.style.display = "none";
+          startBGM(); // playingがtrueになった直後にBGMを開始
         } else {
           handleRetry();
         }
