@@ -354,6 +354,7 @@
     function onInteraction() {
       unlockAudio();
       startBGM();
+      isTouching = true; // タップした瞬間から連射を有効にする
       if (narrativeIdx >= 0) return;
       if (!playing) {
         if (waiting) {
@@ -366,7 +367,15 @@
     }
 
     msgOverlay.addEventListener("click", onInteraction);
-    msgOverlay.addEventListener("touchstart", (e) => { e.preventDefault(); onInteraction(); }, { passive: false });
+    msgOverlay.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      if (player) {
+        player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
+      }
+      onInteraction();
+    }, { passive: false });
+    msgOverlay.addEventListener("touchend", () => { isTouching = false; });
 
     window.addEventListener("keydown", e => {
       keys[e.code] = true;
