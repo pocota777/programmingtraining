@@ -81,12 +81,56 @@
       margin-top: 10px;
       color: #ffcc00;
     }
+
+    /* ローディング画面 */
+    #loading-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #loading-screen h2 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    .loading-bar-container {
+      width: 60%;
+      height: 24px;
+      border: 4px solid #fff;
+      padding: 4px;
+      box-sizing: content-box;
+    }
+    #loading-bar {
+      width: 0%;
+      height: 100%;
+      background: #00ffff;
+      transition: width 0.1s;
+    }
+    #loading-text {
+      margin-top: 10px;
+      font-size: 14px;
+    }
   </style>
 </head>
 
 <body>
 
   <div id="game-container">
+    <div id="loading-screen">
+      <h2>LOADING...</h2>
+      <div class="loading-bar-container">
+        <div id="loading-bar"></div>
+      </div>
+      <div id="loading-text">0%</div>
+    </div>
     <canvas id="game" width="400" height="800"></canvas>
     <div id="msg" class="screen"></div>
   </div>
@@ -96,10 +140,7 @@
     const ctx = canvas.getContext("2d");
 
     const bgImg = new Image();
-    bgImg.src = "images/sushibg.jpg";
-
     const officeBgImg = new Image();
-    officeBgImg.src = "images/officebg.jpg";
 
     // アセットの読み込み
     const assets = {
@@ -122,16 +163,44 @@
     ];
 
     function loadAssets() {
+      const allImages = [bgImg, officeBgImg, ...Object.values(assets), ...sushiAssets.map(s => s.img)];
+      let loadedCount = 0;
+      const total = allImages.length;
+
+      function updateLoading() {
+        loadedCount++;
+        const percent = Math.floor((loadedCount / total) * 100);
+        document.getElementById("loading-bar").style.width = percent + "%";
+        document.getElementById("loading-text").innerText = percent + "%";
+        
+        if (loadedCount === total) {
+          setTimeout(() => {
+            document.getElementById("loading-screen").style.display = "none";
+            showStage(); // 全て読み終わったら最初のステージ表示
+          }, 500);
+        }
+      }
+
+      allImages.forEach(img => {
+        if (img.complete) {
+          updateLoading();
+        } else {
+          img.onload = updateLoading;
+          img.onerror = updateLoading; // エラーでも次へ
+        }
+      });
+
+      // 各画像のソース指定
+      bgImg.src = "images/sushibg.jpg";
+      officeBgImg.src = "images/officebg.jpg";
       assets.chef.src = "images/itamae.png";
       assets.money.src = "images/money.png";
       assets.bunny.src = "images/woman1.png";
-      
       assets.boss.src = "images/boss.png";
       assets.paper.src = "images/paper.png";
       assets.pc.src = "images/pc.png";
       assets.woman2.src = "images/woman2.png";
       assets.life.src = "images/life.png";
-
       sushiAssets.forEach(s => s.img.src = "images/" + s.src);
     }
 
@@ -165,8 +234,12 @@
     let bgmOsc = null;
 
     function initAudio() {
-      if (audioCtx) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
     }
 
     function playHitSound() {
@@ -687,8 +760,13 @@
     }
 
     // 初期
-    showStage();
     loop();
+    
+    // モバイル向けにタッチ開始時にもオーディオ初期化を試行
+    window.addEventListener("touchstart", () => {
+      initAudio();
+      startBGM();
+    }, { once: true });
   </script>
 
 </body>
