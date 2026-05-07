@@ -263,13 +263,13 @@
     }
 
     function playHitSound() {
-      if (!audioCtx) return;
+      if (!audioCtx || audioCtx.state !== 'running') return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "square";
       osc.frequency.setValueAtTime(150, audioCtx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime); // 少し音量アップ
       gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
@@ -278,13 +278,13 @@
     }
 
     function playDamageSound() {
-      if (!audioCtx) return;
+      if (!audioCtx || audioCtx.state !== 'running') return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "sawtooth";
       osc.frequency.setValueAtTime(100, audioCtx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.25, audioCtx.currentTime); // 少し音量アップ
       gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
@@ -293,9 +293,9 @@
     }
 
     function startBGM() {
-      if (!audioCtx || bgmOsc) return;
-      bgmOsc = true; // 重複防止
-      const notes = [196.00, 220.00, 261.63, 293.66, 329.63]; // 少し低めのペンタトニック
+      if (!audioCtx || audioCtx.state !== 'running' || bgmOsc) return;
+      bgmOsc = true;
+      const notes = [196.00, 220.00, 261.63, 293.66, 329.63];
       let noteIdx = 0;
 
       function playNextNote() {
@@ -304,15 +304,19 @@
           return;
         }
         
+        if (audioCtx.state !== 'running') {
+          bgmOsc = false; // 止まってしまったら再開できるように
+          return;
+        }
+
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         
         if (!isHiddenStage) {
-          // --- お鮨屋：ゆったりした音 ---
           osc.type = "sine";
           osc.frequency.setValueAtTime(notes[noteIdx], audioCtx.currentTime);
           gain.gain.setValueAtTime(0, audioCtx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.02, audioCtx.currentTime + 0.1);
+          gain.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.1); // 0.02 -> 0.04
           gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
           osc.connect(gain);
           gain.connect(audioCtx.destination);
@@ -322,17 +326,17 @@
           setTimeout(playNextNote, 1200 + Math.random() * 800);
         } else {
           // --- オフィス：緊迫感のあるテクノ風 ---
-          const tenseNotes = [110.00, 123.47, 130.81, 146.83]; // 低い A, B, C, D
+          const tenseNotes = [110.00, 123.47, 130.81, 146.83];
           osc.type = "sawtooth";
           osc.frequency.setValueAtTime(tenseNotes[noteIdx % tenseNotes.length], audioCtx.currentTime);
-          gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.04, audioCtx.currentTime); // 0.02 -> 0.04
           gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
           osc.connect(gain);
           gain.connect(audioCtx.destination);
           osc.start();
           osc.stop(audioCtx.currentTime + 0.2);
           noteIdx++;
-          setTimeout(playNextNote, 150); // 高速テンポ
+          setTimeout(playNextNote, 150);
         }
       }
       playNextNote();
