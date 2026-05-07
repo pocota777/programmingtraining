@@ -280,7 +280,9 @@
     }
 
     function startBGM() {
-      if (!audioCtx || bgmOsc) return;
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (bgmOsc) return; // 既にループが開始している場合は何もしない
       bgmOsc = true;
       const notes = [196.00, 220.00, 261.63, 293.66, 329.63];
       let noteIdx = 0;
@@ -404,9 +406,11 @@
     function onInteraction(isTouch) {
       if (isWaitingForRelease && isTouch) return; 
       
-      // 1. まず音声を叩き起こす
+      // 1. 何はともあれ音声を叩き起こし、BGMの開始を試みる
       unlockAudio();
       if (audioCtx) audioCtx.resume();
+      startBGM(); // 鳴り始めるまで、タップのたびに呼び出す
+      
       if (isTouch) isTouching = true;
 
       // 2. ナラティブ表示中は無視
@@ -416,9 +420,8 @@
       if (!playing) {
         if (waiting) {
           waiting = false; 
-          playing = true; // 先にplayingをtrueにする
+          playing = true; 
           msgOverlay.style.display = "none";
-          startBGM(); // playingがtrueになった直後にBGMを開始
         } else {
           handleRetry();
         }
