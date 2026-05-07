@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -55,16 +54,6 @@
       object-fit: contain;
     }
 
-    @media (max-width: 600px) {
-      #game-container {
-        width: 100vw;
-        height: 100vh;
-        max-width: none;
-        max-height: none;
-        aspect-ratio: auto;
-      }
-    }
-
     #msg-overlay {
       position: absolute;
       top: 0;
@@ -91,7 +80,6 @@
       border-radius: 10px;
       width: 80%;
       max-width: 320px;
-      pointer-events: auto;
     }
 
     #msg-content span {
@@ -103,63 +91,68 @@
 
     #loading-screen {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0; width: 100%; height: 100%;
       background: #000;
-      color: #fff;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 1000;
+      z-index: 200;
+      color: #fff;
     }
 
-    .loading-bar-container {
-      width: 60%;
-      height: 20px;
+    #loading-bar-container {
+      width: 240px;
+      height: 24px;
       border: 3px solid #fff;
-      padding: 3px;
+      background: #222;
+      margin-top: 20px;
+      padding: 2px;
+      box-sizing: border-box;
     }
 
     #loading-bar {
       width: 0%;
       height: 100%;
-      background: #00ffff;
+      background: #fff;
+      transition: width 0.1s;
     }
   </style>
 </head>
-
 <body>
-
   <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="msg-overlay">
+      <div id="msg-content">
+        STAGE 1<br>
+        <span>TAP or SPACEで開始</span>
+      </div>
+    </div>
     <div id="loading-screen">
-      <h2>LOADING...</h2>
-      <div class="loading-bar-container">
+      <div>LOADING...</div>
+      <div id="loading-bar-container">
         <div id="loading-bar"></div>
       </div>
-      <div id="loading-text">0%</div>
+      <div id="loading-text" style="margin-top:10px">0%</div>
     </div>
-
-    <div id="msg-overlay" style="display: none;">
-      <div id="msg-content"></div>
-    </div>
-
-    <canvas id="game" width="400" height="800"></canvas>
   </div>
 
-  <audio id="silent-audio" preload="auto">
-    <source src="data:audio/mpeg;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEgAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADYmFzZWxpbmUAbXA0MgAA/+7fAAAAAAAAAAAAAAA=" type="audio/mpeg">
+  <!-- iOS音響解禁用のダミー要素 -->
+  <audio id="silent-audio" loop>
+    <source src="data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==" type="audio/wav">
   </audio>
 
   <script>
-    const canvas = document.getElementById("game");
+    const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const msgOverlay = document.getElementById("msg-overlay");
     const msgContent = document.getElementById("msg-content");
     const silentAudio = document.getElementById("silent-audio");
 
+    canvas.width = 400;
+    canvas.height = 800;
+
+    // 資産読み込み
     const bgImg = new Image();
     const officeBgImg = new Image();
     const assets = {
@@ -253,7 +246,7 @@
 
     function playHitSound() {
       if (!audioCtx) return;
-      audioCtx.resume(); // 常にresumeを試行して生存確認
+      audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "square";
@@ -267,7 +260,7 @@
 
     function playDamageSound() {
       if (!audioCtx) return;
-      audioCtx.resume(); // 常にresumeを試行して生存確認
+      audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "sawtooth";
@@ -282,7 +275,7 @@
     function startBGM() {
       if (!audioCtx) return;
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      if (bgmOsc) return; // 既にループが開始している場合は何もしない
+      if (bgmOsc) return; 
       bgmOsc = true;
       const notes = [196.00, 220.00, 261.63, 293.66, 329.63];
       let noteIdx = 0;
@@ -312,7 +305,6 @@
           setTimeout(playNextNote, 150);
         }
       }
-      // 最初の音を出す前に少しだけ（100ms）待って、エンジンの準備を確実にする
       setTimeout(playNextNote, 100);
     }
 
@@ -322,7 +314,6 @@
         player = { x: 200, y: 600, w: 40, h: 40, speed: 10, life: 5, targetX: 200 };
         score = 0;
       } else if (stage === 1 && isHiddenStage) {
-        // オフィスステージ開始時はライフのみ回復、スコアは維持
         player.life = 5;
       }
       player.y = 600; player.x = 200; player.targetX = undefined;
@@ -346,14 +337,8 @@
 
     function showStage() {
       initStage(); playing = false; waiting = true;
-      
-      // スマホで指を置いたままの場合は離すのを待つ
-      if (isTouching) {
-        isWaitingForRelease = true;
-      }
-
+      if (isTouching) isWaitingForRelease = true;
       msgOverlay.style.display = "flex";
-      
       if (stage < 4) {
         msgContent.innerHTML = `STAGE ${stage}<br><span>TAP or SPACEで開始</span>`;
         msgContent.style.color = "#fff"; msgContent.style.borderColor = "#fff";
@@ -373,7 +358,7 @@
       msgOverlay.style.display = "flex";
       msgContent.innerHTML = narrativeLines[narrativeIdx];
       msgContent.style.color = "#fff"; msgContent.style.borderColor = "#fff";
-      narrativeTimer = setTimeout(nextNarrative, 3000); // 3秒に変更して読みやすく
+      narrativeTimer = setTimeout(nextNarrative, 3000);
     }
 
     function nextNarrative() {
@@ -381,72 +366,57 @@
       if (narrativeIdx === -1) return;
       narrativeIdx++;
       if (narrativeIdx < narrativeLines.length) showNarrative();
-      else { 
-        narrativeIdx = -1; 
-        isHiddenStage = true; 
-        stage = 1; 
-        showStage(); 
-      }
+      else { narrativeIdx = -1; isHiddenStage = true; stage = 1; showStage(); }
     }
 
     function handleRetry() {
       if (!canRetry) return;
       if (isGameClear) {
-        // 全クリ後は最初（お鮨屋さん）から
         location.reload();
       } else if (isHiddenStage) {
-        // オフィスステージで負けた場合はオフィスの最初から
-        stage = 1;
-        showStage();
+        stage = 1; showStage();
       } else {
         location.reload();
       }
     }
 
-    function onInteraction(isTouch) {
+    function onInteraction(isTouch, isGameStartKey) {
       if (isWaitingForRelease && isTouch) return; 
-      
-      // 1. 何はともあれ音声を叩き起こし、BGMの開始を試みる
       unlockAudio();
       if (audioCtx) audioCtx.resume();
-      startBGM(); // 鳴り始めるまで、タップのたびに呼び出す
-      
       if (isTouch) isTouching = true;
-
-      // 2. ナラティブ表示中は無視
       if (narrativeIdx >= 0) return;
 
-      // 3. ゲーム開始処理
       if (!playing) {
         if (waiting) {
-          waiting = false; 
-          playing = true; 
-          msgOverlay.style.display = "none";
+          if (isTouch || isGameStartKey) {
+            waiting = false; playing = true; 
+            msgOverlay.style.display = "none";
+            startBGM();
+          }
         } else {
-          handleRetry();
+          if (isTouch || isGameStartKey) handleRetry();
         }
       }
     }
 
-    msgOverlay.addEventListener("click", () => onInteraction(false));
+    msgOverlay.addEventListener("click", () => onInteraction(false, true));
     msgOverlay.addEventListener("touchstart", (e) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
-      if (player) {
-        player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
-      }
-      onInteraction(true);
+      if (player) player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
+      onInteraction(true, true);
     }, { passive: false });
     msgOverlay.addEventListener("touchend", () => { 
-      isTouching = false; 
-      isWaitingForRelease = false; // 指を離したので次へ進める
+      isTouching = false; isWaitingForRelease = false; 
     });
     window.addEventListener("mouseup", () => { isTouching = false; });
 
     window.addEventListener("keydown", e => {
-      if (narrativeIdx >= 0) return; // ナラティブ中は入力を無視
+      if (narrativeIdx >= 0) return;
       keys[e.code] = true;
-      onInteraction();
+      const isStartKey = (e.code === "Space" || e.code === "KeyR" || e.code === "Enter");
+      onInteraction(false, isStartKey);
       if (e.code === "Space" && playing) bullets.push({ x: player.x + 10, y: player.y });
     });
     window.addEventListener("keyup", e => { keys[e.code] = false; });
@@ -458,8 +428,7 @@
     });
 
     canvas.addEventListener("touchstart", e => {
-      e.preventDefault();
-      isTouching = true;
+      e.preventDefault(); isTouching = true;
       const rect = canvas.getBoundingClientRect();
       player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
     }, { passive: false });
@@ -471,9 +440,7 @@
     }, { passive: false });
 
     canvas.addEventListener("touchend", e => {
-      e.preventDefault();
-      isTouching = false;
-      player.targetX = undefined;
+      e.preventDefault(); isTouching = false; player.targetX = undefined;
     }, { passive: false });
 
     function update() {
@@ -481,20 +448,13 @@
       enemyBullets = enemyBullets.filter(b => b.y < 850);
       if (shake > 0) shake *= 0.9;
       if (!playing) return;
-
-      // 自動連射 (タッチ中)
-      if (isTouching && Math.random() < 0.2) {
-        bullets.push({ x: player.x + 10, y: player.y });
-      }
-
+      if (isTouching && Math.random() < 0.2) bullets.push({ x: player.x + 10, y: player.y });
       if (keys["ArrowLeft"]) player.x -= player.speed;
       if (keys["ArrowRight"]) player.x += player.speed;
       if (player.targetX !== undefined) player.x = player.targetX;
       if (player.x < 0) player.x = 0; if (player.x > 400) player.x = 400;
-
       bullets.forEach(b => b.y -= 7);
       enemyBullets.forEach(b => b.y += 1.8);
-
       enemies.forEach((e, ei) => {
         e.x += e.vx; e.y += e.vy + e.downSpeed;
         if (e.x < 20 || e.x > 380) e.vx *= -1;
@@ -514,7 +474,6 @@
           enemyBullets.push({ x: e.x, y: e.y + 10, img: s.img, pts: s.pts });
         }
       });
-
       if (boss) {
         boss.x += boss.vx; if (boss.x < 0 || boss.x > 300) boss.vx *= -1;
         if (Math.random() < 0.005) {
@@ -522,7 +481,6 @@
           enemyBullets.push({ x: boss.x + 40, y: boss.y, img: s.img, pts: s.pts });
         }
       }
-
       bullets.forEach((b, bi) => {
         enemies.forEach((e, ei) => {
           if (Math.abs(b.x - e.x) < 40 && Math.abs(b.y - e.y) < 40) {
@@ -538,7 +496,6 @@
           boss.hp -= 0.5; bullets.splice(bi, 1); score += 5; playHitSound(); shake = 10;
         }
       });
-
       enemyBullets.forEach((b, bi) => {
         if (Math.abs(b.x - player.x) < 35 && Math.abs(b.y - player.y) < 35) {
           enemyBullets.splice(bi, 1); player.life--; playDamageSound(); shake = 15;
@@ -549,7 +506,6 @@
           }
         }
       });
-
       if (enemies.length === 0 && !boss) { stage++; showStage(); }
       if (boss && boss.hp <= 0) {
         playing = false;
