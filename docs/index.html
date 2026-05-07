@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>SUSHIVADER</title>
 
   <style>
     @font-face {
-      font-family: 'MisakiGothic';
-      src: url('https://cdn.leafscape.be/misaki/misaki_gothic_web.woff2') format('woff2');
+      font-family: "MisakiGothic";
+      src: url("https://cdn.leafscape.be/misaki/misaki_gothic_web.woff2") format("woff2");
     }
 
     body {
@@ -18,7 +19,7 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      font-family: 'MisakiGothic', sans-serif;
+      font-family: "MisakiGothic", sans-serif;
       overflow: hidden;
       touch-action: none;
     }
@@ -56,27 +57,22 @@
 
     #msg-overlay {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      inset: 0;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
       background: rgba(0, 0, 0, 0.5);
       z-index: 100;
-      cursor: pointer;
     }
 
     #msg-content {
-      color: #fff;
+      color: white;
       text-align: center;
       font-size: 28px;
-      text-shadow: 0 0 10px #000, 0 0 20px #000;
+      text-shadow: 0 0 10px #000;
       background: rgba(0, 0, 0, 0.85);
       padding: 20px;
-      border: 4px solid #fff;
+      border: 4px solid white;
       border-radius: 10px;
       width: 80%;
       max-width: 320px;
@@ -84,27 +80,27 @@
 
     #msg-content span {
       display: block;
-      font-size: 18px;
       margin-top: 15px;
+      font-size: 18px;
       color: #ffcc00;
     }
 
     #loading-screen {
       position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
+      inset: 0;
       background: #000;
+      z-index: 200;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 200;
-      color: #fff;
+      color: white;
     }
 
     #loading-bar-container {
       width: 240px;
       height: 24px;
-      border: 3px solid #fff;
+      border: 3px solid white;
       background: #222;
       margin-top: 20px;
       padding: 2px;
@@ -114,64 +110,92 @@
     #loading-bar {
       width: 0%;
       height: 100%;
-      background: #fff;
+      background: white;
       transition: width 0.1s;
     }
   </style>
 </head>
+
 <body>
   <div id="game-container">
+
     <canvas id="gameCanvas"></canvas>
+
     <div id="msg-overlay">
       <div id="msg-content">
-        STAGE 1<br>
+        STAGE 1
+        <br />
         <span>TAP or SPACEで開始</span>
       </div>
     </div>
+
     <div id="loading-screen">
       <div>LOADING...</div>
+
       <div id="loading-bar-container">
         <div id="loading-bar"></div>
       </div>
-      <div id="loading-text" style="margin-top:10px">0%</div>
+
+      <div id="loading-text" style="margin-top:10px">
+        0%
+      </div>
     </div>
   </div>
 
-  <!-- iOS音響解禁用のダミー要素 -->
-  <audio id="silent-audio" loop>
-    <source src="data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==" type="audio/wav">
+  <!-- iOS audio unlock -->
+  <audio id="silent-audio" muted playsinline loop>
+    <source src="data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
+      type="audio/wav" />
   </audio>
 
   <script>
+    // =====================================================
+    // 基本
+    // =====================================================
+
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+
     const msgOverlay = document.getElementById("msg-overlay");
     const msgContent = document.getElementById("msg-content");
+
     const silentAudio = document.getElementById("silent-audio");
 
     canvas.width = 400;
     canvas.height = 800;
 
-    // 資産読み込み
+    // =====================================================
+    // 画像
+    // =====================================================
+
     const bgImg = new Image();
     const officeBgImg = new Image();
+
     const assets = {
-      chef: new Image(), money: new Image(), bunny: new Image(),
-      boss: new Image(), paper: new Image(), pc: new Image(),
-      woman2: new Image(), life: new Image()
+      chef: new Image(),
+      money: new Image(),
+      bunny: new Image(),
+      boss: new Image(),
+      paper: new Image(),
+      pc: new Image(),
+      woman2: new Image(),
+      life: new Image(),
     };
+
     const sushiAssets = [
       { img: new Image(), pts: 10, src: "egg.png" },
       { img: new Image(), pts: 20, src: "tuna.png" },
       { img: new Image(), pts: 30, src: "salmon.png" },
       { img: new Image(), pts: 40, src: "ikura.png" },
-      { img: new Image(), pts: 50, src: "uni.png" }
+      { img: new Image(), pts: 50, src: "uni.png" },
     ];
 
     function loadAssets() {
+
       const allImages = [
         { img: bgImg, src: "images/sushibg.jpg" },
         { img: officeBgImg, src: "images/officebg.jpg" },
+
         { img: assets.chef, src: "images/itamae.png" },
         { img: assets.money, src: "images/money.png" },
         { img: assets.bunny, src: "images/woman1.png" },
@@ -180,383 +204,736 @@
         { img: assets.pc, src: "images/pc.png" },
         { img: assets.woman2, src: "images/woman2.png" },
         { img: assets.life, src: "images/life.png" },
-        ...sushiAssets
+
+        ...sushiAssets,
       ];
+
       let loaded = 0;
-      allImages.forEach(item => {
+
+      allImages.forEach((item) => {
+
         item.img.onload = item.img.onerror = () => {
+
           loaded++;
-          const percent = Math.floor((loaded / allImages.length) * 100);
-          const bar = document.getElementById("loading-bar");
-          const text = document.getElementById("loading-text");
-          if (bar) bar.style.width = percent + "%";
-          if (text) text.innerText = percent + "%";
+
+          const percent = Math.floor(
+            (loaded / allImages.length) * 100
+          );
+
+          document.getElementById("loading-bar").style.width =
+            percent + "%";
+
+          document.getElementById("loading-text").innerText =
+            percent + "%";
+
           if (loaded === allImages.length) {
+
             setTimeout(() => {
-              document.getElementById("loading-screen").style.display = "none";
+
+              document.getElementById(
+                "loading-screen"
+              ).style.display = "none";
+
               showStage();
+
               loop();
+
             }, 500);
           }
         };
-        item.img.src = item.src.includes("/") ? item.src : "images/" + item.src;
+
+        item.img.src = item.src;
       });
     }
+
     loadAssets();
 
+    // =====================================================
+    // 描画
+    // =====================================================
+
     function drawSprite(img, x, y, targetWidth) {
+
       if (!img.complete || !img.naturalWidth) return;
+
       const ratio = img.naturalHeight / img.naturalWidth;
       const targetHeight = targetWidth * ratio;
-      ctx.drawImage(img, x - targetWidth / 2, y - targetHeight / 2, targetWidth, targetHeight);
+
+      ctx.drawImage(
+        img,
+        x - targetWidth / 2,
+        y - targetHeight / 2,
+        targetWidth,
+        targetHeight
+      );
     }
 
-    let player = null, bullets = [], enemyBullets = [], enemies = [], boss = null;
-    let keys = {}, stage = 1, score = 0, playing = false, waiting = true, shake = 0;
-    let isHiddenStage = false, isGameClear = false, canRetry = true, narrativeIdx = -1;
-    let isTouching = false; // 連射のためのタッチフラグ
-    let isWaitingForRelease = false; // ステージ開始時に指を離すのを待つフラグ
-    const narrativeLines = ["思い出した…", "私は丸の内で働く会社員…", "こんなところでお鮨を食べている場合じゃなかった！"];
+    // =====================================================
+    // 状態
+    // =====================================================
 
-    // --- 音声システム ---
-    let audioCtx = null, bgmOsc = null;
+    let player = null;
 
-    function unlockAudio() {
+    let bullets = [];
+    let enemyBullets = [];
+    let enemies = [];
+
+    let boss = null;
+
+    let keys = {};
+
+    let stage = 1;
+    let score = 0;
+
+    let playing = false;
+    let waiting = true;
+
+    let shake = 0;
+
+    let isTouching = false;
+
+    // =====================================================
+    // 音声システム（安定版）
+    // =====================================================
+
+    let audioCtx = null;
+
+    let bgmStarted = false;
+
+    let isUnlockingAudio = false;
+
+    async function ensureAudioContext() {
+
+      if (
+        !audioCtx ||
+        audioCtx.state === "closed"
+      ) {
+
+        audioCtx =
+          new (
+            window.AudioContext ||
+            window.webkitAudioContext
+          )({
+            latencyHint: "interactive",
+          });
+      }
+
+      if (isUnlockingAudio) return false;
+
       try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // iOS Safari用の最強の解禁方法: 空のバッファを再生
-        const buffer = audioCtx.createBuffer(1, 1, 22050);
-        const source = audioCtx.createBufferSource();
+
+        isUnlockingAudio = true;
+
+        if (
+          audioCtx.state === "suspended" ||
+          audioCtx.state === "interrupted"
+        ) {
+          await audioCtx.resume();
+        }
+
+        // iOS unlock
+        const buffer = audioCtx.createBuffer(
+          1,
+          1,
+          22050
+        );
+
+        const source =
+          audioCtx.createBufferSource();
+
         source.buffer = buffer;
+
         source.connect(audioCtx.destination);
+
         source.start(0);
 
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        silentAudio.play().catch(() => {});
-        
-        // 念のためのダミー音
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        gain.gain.value = 0.001;
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(0); osc.stop(audioCtx.currentTime + 0.1);
-      } catch (e) { console.error(e); }
+        try {
+          await silentAudio.play();
+        } catch (e) { }
+
+        return audioCtx.state === "running";
+
+      } catch (e) {
+
+        console.log(e);
+
+        try {
+          await audioCtx.close();
+        } catch (e2) { }
+
+        audioCtx = null;
+
+        return false;
+
+      } finally {
+
+        isUnlockingAudio = false;
+      }
     }
 
-    function playHitSound() {
-      if (!audioCtx) return;
-      audioCtx.resume();
+    async function playHitSound() {
+
+      const ok = await ensureAudioContext();
+
+      if (!ok) return;
+
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+
       osc.type = "square";
-      osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+
+      osc.frequency.setValueAtTime(
+        150,
+        audioCtx.currentTime
+      );
+
+      osc.frequency.exponentialRampToValueAtTime(
+        40,
+        audioCtx.currentTime + 0.1
+      );
+
+      gain.gain.setValueAtTime(
+        0.15,
+        audioCtx.currentTime
+      );
+
+      gain.gain.linearRampToValueAtTime(
+        0,
+        audioCtx.currentTime + 0.1
+      );
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+
+      osc.stop(audioCtx.currentTime + 0.1);
     }
 
-    function playDamageSound() {
-      if (!audioCtx) return;
-      audioCtx.resume();
+    async function playDamageSound() {
+
+      const ok = await ensureAudioContext();
+
+      if (!ok) return;
+
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+
       osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+
+      osc.frequency.setValueAtTime(
+        100,
+        audioCtx.currentTime
+      );
+
+      osc.frequency.exponentialRampToValueAtTime(
+        20,
+        audioCtx.currentTime + 0.3
+      );
+
+      gain.gain.setValueAtTime(
+        0.2,
+        audioCtx.currentTime
+      );
+
+      gain.gain.linearRampToValueAtTime(
+        0,
+        audioCtx.currentTime + 0.3
+      );
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+
+      osc.stop(audioCtx.currentTime + 0.3);
     }
 
-    function startBGM() {
-      if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      if (bgmOsc) return; 
-      bgmOsc = true;
-      const notes = [196.00, 220.00, 261.63, 293.66, 329.63];
+    async function startBGM() {
+
+      const ok = await ensureAudioContext();
+
+      if (!ok) return;
+
+      if (bgmStarted) return;
+
+      bgmStarted = true;
+
+      const notes = [
+        196.0,
+        220.0,
+        261.63,
+        293.66,
+        329.63,
+      ];
+
       let noteIdx = 0;
+
       function playNextNote() {
-        if (!playing) { setTimeout(playNextNote, 1000); return; }
+
+        if (!playing) {
+          setTimeout(playNextNote, 1000);
+          return;
+        }
+
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        if (!isHiddenStage) {
-          osc.type = "triangle";
-          osc.frequency.setValueAtTime(notes[noteIdx], audioCtx.currentTime);
-          gain.gain.setValueAtTime(0, audioCtx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.1);
-          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
-          osc.connect(gain); gain.connect(audioCtx.destination);
-          osc.start(); osc.stop(audioCtx.currentTime + 1.5);
-          noteIdx = (noteIdx + 1) % notes.length;
-          setTimeout(playNextNote, 800 + Math.random() * 400);
-        } else {
-          const tenseNotes = [110.00, 123.47, 130.81, 146.83];
-          osc.type = "sawtooth";
-          osc.frequency.setValueAtTime(tenseNotes[noteIdx % tenseNotes.length], audioCtx.currentTime);
-          gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-          osc.connect(gain); gain.connect(audioCtx.destination);
-          osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-          noteIdx++;
-          setTimeout(playNextNote, 150);
-        }
+
+        osc.type = "triangle";
+
+        osc.frequency.setValueAtTime(
+          notes[noteIdx],
+          audioCtx.currentTime
+        );
+
+        gain.gain.setValueAtTime(
+          0,
+          audioCtx.currentTime
+        );
+
+        gain.gain.linearRampToValueAtTime(
+          0.08,
+          audioCtx.currentTime + 0.1
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+          0.001,
+          audioCtx.currentTime + 1.2
+        );
+
+        osc.connect(gain);
+
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+
+        osc.stop(audioCtx.currentTime + 1.5);
+
+        noteIdx =
+          (noteIdx + 1) % notes.length;
+
+        setTimeout(
+          playNextNote,
+          800 + Math.random() * 400
+        );
       }
-      setTimeout(playNextNote, 100);
+
+      playNextNote();
     }
 
-    // --- ロジック ---
-    function initStage() {
-      if (stage === 1 && !isHiddenStage) {
-        player = { x: 200, y: 600, w: 40, h: 40, speed: 10, life: 5, targetX: 200 };
-        score = 0;
-      } else if (stage === 1 && isHiddenStage) {
-        player.life = 5;
-      }
-      player.y = 600; player.x = 200; player.targetX = undefined;
-      shake = 0; bullets = []; enemyBullets = []; enemies = []; boss = null;
-      if (stage < 4) {
-        const countMult = isHiddenStage ? 1.5 : 1;
-        const speedMult = isHiddenStage ? 1.4 : 1;
-        for (let i = 0; i < Math.floor((5 + stage * 2) * countMult); i++) {
-          enemies.push({
-            x: Math.random() * 340 + 30, y: 250 + Math.random() * 50,
-            vx: (Math.random() - 0.5) * (1 + stage * 0.3) * speedMult,
-            vy: (Math.random() - 0.5) * (1 + stage * 0.3) * speedMult,
-            downSpeed: (0.1 + stage * 0.05) * speedMult
-          });
+    // =====================================================
+    // iOS復帰対策
+    // =====================================================
+
+    document.addEventListener(
+      "visibilitychange",
+      async () => {
+
+        if (
+          document.visibilityState !== "visible"
+        ) {
+          return;
         }
-      } else {
-        const hp = isHiddenStage ? 60 : 30;
-        boss = { x: 150, y: 240, w: 100, h: 100, vx: isHiddenStage ? 3 : 2, hp: hp, maxHp: hp };
+
+        if (!audioCtx) return;
+
+        try {
+
+          if (
+            audioCtx.state === "suspended" ||
+            audioCtx.state === "interrupted"
+          ) {
+            await audioCtx.resume();
+          }
+
+        } catch (e) {
+
+          try {
+            await audioCtx.close();
+          } catch (e2) { }
+
+          audioCtx = null;
+        }
+      }
+    );
+
+    // =====================================================
+    // ステージ
+    // =====================================================
+
+    function initStage() {
+
+      player = {
+        x: 200,
+        y: 650,
+        w: 40,
+        h: 40,
+        speed: 10,
+        life: 5,
+      };
+
+      bullets = [];
+      enemyBullets = [];
+      enemies = [];
+
+      for (let i = 0; i < 8; i++) {
+
+        enemies.push({
+          x: Math.random() * 340 + 30,
+          y: 200 + Math.random() * 100,
+          vx: (Math.random() - 0.5) * 3,
+          vy: (Math.random() - 0.5) * 2,
+        });
       }
     }
 
     function showStage() {
-      initStage(); playing = false; waiting = true;
-      if (isTouching) isWaitingForRelease = true;
+
+      initStage();
+
+      playing = false;
+      waiting = true;
+
       msgOverlay.style.display = "flex";
-      if (stage < 4) {
-        msgContent.innerHTML = `STAGE ${stage}<br><span>TAP or SPACEで開始</span>`;
-        msgContent.style.color = "#fff"; msgContent.style.borderColor = "#fff";
-      } else {
-        msgContent.innerHTML = `FINAL STAGE<br><span>TAP or SPACEで最終決戦</span>`;
-        msgContent.style.color = "#ff3300"; msgContent.style.borderColor = "#ff3300";
+
+      msgContent.innerHTML = `
+        STAGE ${stage}
+        <br>
+        <span>TAP or SPACEで開始</span>
+      `;
+    }
+
+    // =====================================================
+    // 開始
+    // =====================================================
+
+    async function onInteraction() {
+
+      await ensureAudioContext();
+
+      if (!playing && waiting) {
+
+        waiting = false;
+        playing = true;
+
+        msgOverlay.style.display = "none";
+
+        startBGM();
       }
     }
 
-    function startHiddenStageTransition() {
-      playing = false; narrativeIdx = 0; showNarrative();
-    }
+    // =====================================================
+    // pointerup（超重要）
+    // =====================================================
 
-    let narrativeTimer = null;
-    function showNarrative() {
-      if (narrativeTimer) clearTimeout(narrativeTimer);
-      msgOverlay.style.display = "flex";
-      msgContent.innerHTML = narrativeLines[narrativeIdx];
-      msgContent.style.color = "#fff"; msgContent.style.borderColor = "#fff";
-      narrativeTimer = setTimeout(nextNarrative, 3000);
-    }
+    msgOverlay.addEventListener(
+      "pointerup",
+      async (e) => {
 
-    function nextNarrative() {
-      if (narrativeTimer) clearTimeout(narrativeTimer);
-      if (narrativeIdx === -1) return;
-      narrativeIdx++;
-      if (narrativeIdx < narrativeLines.length) showNarrative();
-      else { narrativeIdx = -1; isHiddenStage = true; stage = 1; showStage(); }
-    }
+        e.preventDefault();
 
-    function handleRetry() {
-      if (!canRetry) return;
-      if (isGameClear) {
-        location.reload();
-      } else if (isHiddenStage) {
-        stage = 1; showStage();
-      } else {
-        location.reload();
+        await onInteraction();
       }
-    }
+    );
 
-    function onInteraction(isTouch, isGameStartKey) {
-      if (isWaitingForRelease && isTouch) return; 
-      unlockAudio();
-      if (audioCtx) audioCtx.resume();
-      if (isTouch) isTouching = true;
-      if (narrativeIdx >= 0) return;
+    // =====================================================
+    // 入力
+    // =====================================================
 
-      if (!playing) {
-        if (waiting) {
-          if (isTouch || isGameStartKey) {
-            waiting = false; playing = true; 
-            msgOverlay.style.display = "none";
-            startBGM();
-          }
-        } else {
-          if (isTouch || isGameStartKey) handleRetry();
+    window.addEventListener("keydown", (e) => {
+
+      keys[e.code] = true;
+
+      if (
+        e.code === "Space" &&
+        playing
+      ) {
+        bullets.push({
+          x: player.x,
+          y: player.y,
+        });
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.code] = false;
+    });
+
+    canvas.addEventListener(
+      "pointerdown",
+      (e) => {
+
+        isTouching = true;
+
+        const rect =
+          canvas.getBoundingClientRect();
+
+        player.targetX =
+          (e.clientX - rect.left) *
+          (canvas.width / rect.width);
+      }
+    );
+
+    canvas.addEventListener(
+      "pointermove",
+      (e) => {
+
+        if (!isTouching) return;
+
+        const rect =
+          canvas.getBoundingClientRect();
+
+        player.targetX =
+          (e.clientX - rect.left) *
+          (canvas.width / rect.width);
+      }
+    );
+
+    window.addEventListener(
+      "pointerup",
+      () => {
+
+        isTouching = false;
+
+        if (player) {
+          player.targetX = undefined;
         }
       }
-    }
+    );
 
-    msgOverlay.addEventListener("click", () => onInteraction(false, true));
-    msgOverlay.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      if (player) player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
-      onInteraction(true, true);
-    }, { passive: false });
-    msgOverlay.addEventListener("touchend", () => { 
-      isTouching = false; isWaitingForRelease = false; 
-    });
-    window.addEventListener("mouseup", () => { isTouching = false; });
-
-    window.addEventListener("keydown", e => {
-      if (narrativeIdx >= 0) return;
-      keys[e.code] = true;
-      const isStartKey = (e.code === "Space" || e.code === "KeyR" || e.code === "Enter");
-      onInteraction(false, isStartKey);
-      if (e.code === "Space" && playing) bullets.push({ x: player.x + 10, y: player.y });
-    });
-    window.addEventListener("keyup", e => { keys[e.code] = false; });
-
-    canvas.addEventListener("mousedown", e => {
-      isTouching = true;
-      const rect = canvas.getBoundingClientRect();
-      player.targetX = (e.clientX - rect.left) * (canvas.width / rect.width);
-    });
-
-    canvas.addEventListener("touchstart", e => {
-      e.preventDefault(); isTouching = true;
-      const rect = canvas.getBoundingClientRect();
-      player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
-    }, { passive: false });
-
-    canvas.addEventListener("touchmove", e => {
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
-    }, { passive: false });
-
-    canvas.addEventListener("touchend", e => {
-      e.preventDefault(); isTouching = false; player.targetX = undefined;
-    }, { passive: false });
+    // =====================================================
+    // update
+    // =====================================================
 
     function update() {
-      bullets = bullets.filter(b => b.y > -50);
-      enemyBullets = enemyBullets.filter(b => b.y < 850);
-      if (shake > 0) shake *= 0.9;
+
       if (!playing) return;
-      if (isTouching && Math.random() < 0.2) bullets.push({ x: player.x + 10, y: player.y });
-      if (keys["ArrowLeft"]) player.x -= player.speed;
-      if (keys["ArrowRight"]) player.x += player.speed;
-      if (player.targetX !== undefined) player.x = player.targetX;
-      if (player.x < 0) player.x = 0; if (player.x > 400) player.x = 400;
-      bullets.forEach(b => b.y -= 7);
-      enemyBullets.forEach(b => b.y += 1.8);
-      enemies.forEach((e, ei) => {
-        e.x += e.vx; e.y += e.vy + e.downSpeed;
-        if (e.x < 20 || e.x > 380) e.vx *= -1;
-        if (e.y < 240 || e.y > 600) e.vy *= -1;
-        if (Math.random() < 0.02) {
-          e.vx = (Math.random() - 0.5) * (1 + stage * 0.4);
-          e.vy = (Math.random() - 0.5) * (1 + stage * 0.4);
-        }
-        if (e.y > 610) {
-          playing = false; msgOverlay.style.display = "flex";
-          msgContent.innerHTML = "INVASION!<br>GAME OVER<br><span>TAP or R to RETRY</span>";
-          msgContent.style.color = "#ff0000"; msgContent.style.borderColor = "#ff0000";
-        }
-        const shotProb = isHiddenStage ? 0.001 : 0.0005;
-        if (Math.random() < shotProb + stage * 0.0002) {
-          const s = !isHiddenStage ? sushiAssets[Math.floor(Math.random() * sushiAssets.length)] : { img: assets.paper, pts: 10 };
-          enemyBullets.push({ x: e.x, y: e.y + 10, img: s.img, pts: s.pts });
-        }
+
+      if (keys["ArrowLeft"]) {
+        player.x -= player.speed;
+      }
+
+      if (keys["ArrowRight"]) {
+        player.x += player.speed;
+      }
+
+      if (
+        player.targetX !== undefined
+      ) {
+        player.x = player.targetX;
+      }
+
+      player.x = Math.max(
+        20,
+        Math.min(380, player.x)
+      );
+
+      if (
+        isTouching &&
+        Math.random() < 0.2
+      ) {
+        bullets.push({
+          x: player.x,
+          y: player.y,
+        });
+      }
+
+      bullets.forEach((b) => {
+        b.y -= 7;
       });
-      if (boss) {
-        boss.x += boss.vx; if (boss.x < 0 || boss.x > 300) boss.vx *= -1;
+
+      bullets = bullets.filter(
+        (b) => b.y > -50
+      );
+
+      enemies.forEach((e) => {
+
+        e.x += e.vx;
+        e.y += e.vy;
+
+        if (e.x < 20 || e.x > 380) {
+          e.vx *= -1;
+        }
+
+        if (e.y < 100 || e.y > 500) {
+          e.vy *= -1;
+        }
+
         if (Math.random() < 0.005) {
-          const s = !isHiddenStage ? sushiAssets[Math.floor(Math.random() * sushiAssets.length)] : { img: assets.paper, pts: 10 };
-          enemyBullets.push({ x: boss.x + 40, y: boss.y, img: s.img, pts: s.pts });
+
+          const s =
+            sushiAssets[
+            Math.floor(
+              Math.random() *
+              sushiAssets.length
+            )
+            ];
+
+          enemyBullets.push({
+            x: e.x,
+            y: e.y,
+            img: s.img,
+            pts: s.pts,
+          });
         }
-      }
+      });
+
+      enemyBullets.forEach((b) => {
+        b.y += 4;
+      });
+
+      enemyBullets =
+        enemyBullets.filter(
+          (b) => b.y < 850
+        );
+
       bullets.forEach((b, bi) => {
+
         enemies.forEach((e, ei) => {
-          if (Math.abs(b.x - e.x) < 40 && Math.abs(b.y - e.y) < 40) {
-            enemies.splice(ei, 1); bullets.splice(bi, 1); score += 10; playHitSound();
+
+          if (
+            Math.abs(b.x - e.x) < 40 &&
+            Math.abs(b.y - e.y) < 40
+          ) {
+
+            enemies.splice(ei, 1);
+
+            bullets.splice(bi, 1);
+
+            score += 10;
+
+            playHitSound();
           }
         });
-        enemyBullets.forEach((eb, ebi) => {
-          if (Math.abs(b.x - eb.x) < 30 && Math.abs(b.y - eb.y) < 30) {
-            score += eb.pts; bullets.splice(bi, 1); playHitSound();
-          }
-        });
-        if (boss && b.x > boss.x && b.x < boss.x + boss.w && b.y > boss.y && b.y < boss.y + boss.h) {
-          boss.hp -= 0.5; bullets.splice(bi, 1); score += 5; playHitSound(); shake = 10;
-        }
       });
+
       enemyBullets.forEach((b, bi) => {
-        if (Math.abs(b.x - player.x) < 35 && Math.abs(b.y - player.y) < 35) {
-          enemyBullets.splice(bi, 1); player.life--; playDamageSound(); shake = 15;
+
+        if (
+          Math.abs(b.x - player.x) < 35 &&
+          Math.abs(b.y - player.y) < 35
+        ) {
+
+          enemyBullets.splice(bi, 1);
+
+          player.life--;
+
+          playDamageSound();
+
           if (player.life <= 0) {
-            playing = false; msgOverlay.style.display = "flex";
-            msgContent.innerHTML = "GAME OVER<br><span>TAP or R to RETRY</span>";
-            msgContent.style.color = "#ff0000"; msgContent.style.borderColor = "#ff0000";
+
+            playing = false;
+
+            msgOverlay.style.display =
+              "flex";
+
+            msgContent.innerHTML = `
+              GAME OVER
+              <br>
+              <span>RELOADしてください</span>
+            `;
           }
         }
       });
-      if (enemies.length === 0 && !boss) { stage++; showStage(); }
-      if (boss && boss.hp <= 0) {
-        playing = false;
-        if (!isHiddenStage) startHiddenStageTransition();
-        else {
-          isGameClear = true; canRetry = false; msgOverlay.style.display = "flex";
-          msgContent.innerHTML = "ALL MISSIONS COMPLETE<br><span>仕事に戻ります…</span>";
-          msgContent.style.color = "#00ffff"; msgContent.style.borderColor = "#00ffff";
-          setTimeout(() => { canRetry = true; msgContent.innerHTML = "ALL MISSIONS COMPLETE<br><span>RETRY TAP or R</span>"; }, 5000);
-        }
-      }
     }
+
+    // =====================================================
+    // draw
+    // =====================================================
 
     function draw() {
-      ctx.save();
-      if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
-      ctx.clearRect(0, 0, 400, 800);
-      if (!isHiddenStage) ctx.drawImage(bgImg, 0, 0, 400, 800);
-      else ctx.drawImage(officeBgImg, 0, 0, 400, 800);
-      ctx.globalAlpha = 1.0;
+
+      ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+      ctx.drawImage(
+        bgImg,
+        0,
+        0,
+        400,
+        800
+      );
+
       if (player) {
-        const pImg = isHiddenStage ? assets.woman2 : assets.bunny;
-        drawSprite(pImg, player.x, player.y, 100);
-        const bImg = isHiddenStage ? assets.pc : assets.money;
-        bullets.forEach(b => drawSprite(bImg, b.x, b.y, 50));
+
+        drawSprite(
+          assets.bunny,
+          player.x,
+          player.y,
+          100
+        );
+
+        bullets.forEach((b) => {
+
+          drawSprite(
+            assets.money,
+            b.x,
+            b.y,
+            50
+          );
+        });
       }
-      enemyBullets.forEach(b => { if (b.img) drawSprite(b.img, b.x, b.y, 60); });
-      const eImg = isHiddenStage ? assets.boss : assets.chef;
-      enemies.forEach(e => drawSprite(eImg, e.x, e.y, 60));
-      if (boss) drawSprite(eImg, boss.x + boss.w / 2, boss.y + boss.h / 2, 150);
-      ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(0, 0, 400, 80);
-      if (player) {
-        ctx.textAlign = "left"; ctx.font = "20px 'MisakiGothic'"; ctx.fillStyle = "white";
-        ctx.fillText("LIFE: ", 10, 32);
-        for (let i = 0; i < player.life; i++) drawSprite(assets.life, 85 + i * 25, 25, 30);
-      }
-      ctx.textAlign = "right"; ctx.font = "20px 'MisakiGothic'"; ctx.fillStyle = "white";
-      ctx.fillText("SCORE: " + score, 390, 32);
-      if (boss) {
-        ctx.font = "16px 'MisakiGothic'"; ctx.fillStyle = "#ffff00"; ctx.textAlign = "left"; ctx.fillText("BOSS HP", 10, 65);
-        const barX = 100, barY = 52, barW = 290, barH = 16;
-        ctx.fillStyle = "#444"; ctx.fillRect(barX, barY, barW, barH);
-        ctx.fillStyle = "#ff2222"; ctx.fillRect(barX, barY, barW * (boss.hp / boss.maxHp), barH);
-        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.strokeRect(barX, barY, barW, barH);
-        ctx.font = "12px 'MisakiGothic'"; ctx.fillStyle = "white"; ctx.textAlign = "center";
-        ctx.fillText(Math.ceil(boss.hp) + " / " + boss.maxHp, barX + barW / 2, barY + 12);
-      }
-      ctx.restore();
+
+      enemies.forEach((e) => {
+
+        drawSprite(
+          assets.chef,
+          e.x,
+          e.y,
+          60
+        );
+      });
+
+      enemyBullets.forEach((b) => {
+
+        drawSprite(
+          b.img,
+          b.x,
+          b.y,
+          60
+        );
+      });
+
+      ctx.fillStyle =
+        "rgba(0,0,0,0.8)";
+
+      ctx.fillRect(0, 0, 400, 70);
+
+      ctx.fillStyle = "white";
+
+      ctx.font =
+        "20px 'MisakiGothic'";
+
+      ctx.fillText(
+        "SCORE: " + score,
+        20,
+        30
+      );
+
+      ctx.fillText(
+        "LIFE: " + player.life,
+        20,
+        60
+      );
     }
 
-    function loop() { update(); draw(); requestAnimationFrame(loop); }
+    // =====================================================
+    // loop
+    // =====================================================
+
+    function loop() {
+
+      update();
+
+      draw();
+
+      requestAnimationFrame(loop);
+    }
   </script>
 </body>
+
 </html>
