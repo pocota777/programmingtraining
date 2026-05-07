@@ -351,10 +351,10 @@
       location.reload();
     }
 
-    function onInteraction() {
+    function onInteraction(isTouch) {
       unlockAudio();
       startBGM();
-      isTouching = true; // タップした瞬間から連射を有効にする
+      if (isTouch) isTouching = true; // タッチの時だけ連射を即座に有効にする
       if (narrativeIdx >= 0) return;
       if (!playing) {
         if (waiting) {
@@ -366,16 +366,17 @@
       }
     }
 
-    msgOverlay.addEventListener("click", onInteraction);
+    msgOverlay.addEventListener("click", () => onInteraction(false));
     msgOverlay.addEventListener("touchstart", (e) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       if (player) {
         player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
       }
-      onInteraction();
+      onInteraction(true);
     }, { passive: false });
     msgOverlay.addEventListener("touchend", () => { isTouching = false; });
+    window.addEventListener("mouseup", () => { isTouching = false; });
 
     window.addEventListener("keydown", e => {
       keys[e.code] = true;
@@ -384,7 +385,12 @@
     });
     window.addEventListener("keyup", e => { keys[e.code] = false; });
 
-    // タッチ操作 (連射対応)
+    canvas.addEventListener("mousedown", e => {
+      isTouching = true;
+      const rect = canvas.getBoundingClientRect();
+      player.targetX = (e.clientX - rect.left) * (canvas.width / rect.width);
+    });
+
     canvas.addEventListener("touchstart", e => {
       e.preventDefault();
       isTouching = true;
