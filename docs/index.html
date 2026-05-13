@@ -226,8 +226,10 @@
 
     // --- 音声システム ---
     let audioCtx = null, bgmOsc = null;
+    let audioUnlocked = false;
 
-    function unlockAudio() {
+    async function unlockAudio() {
+      if (audioUnlocked) return;
       try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -238,7 +240,8 @@
         source.connect(audioCtx.destination);
         source.start(0);
 
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        // resumeをawaitして確実に完了させる
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
         silentAudio.play().catch(() => { });
 
         // 念のためのダミー音
@@ -247,6 +250,8 @@
         gain.gain.value = 0.001;
         osc.connect(gain); gain.connect(audioCtx.destination);
         osc.start(0); osc.stop(audioCtx.currentTime + 0.1);
+
+        audioUnlocked = true;
       } catch (e) { console.error(e); }
     }
 
@@ -386,10 +391,17 @@
       }
     }
 
-    function onInteraction(isTouch, isGameStartKey) {
+    async function onInteraction(isTouch, isGameStartKey) {
       if (isWaitingForRelease && isTouch) return;
-      unlockAudio();
-      if (audioCtx) audioCtx.resume();
+
+      // ゲーム開始・リトライ時のみ await する
+      if (!playing && (isTouch || isGameStartKey)) {
+        await unlockAudio();
+      } else {
+        // プレイ中は await せずに実行（フラグにより即 return する）
+        unlockAudio();
+      }
+
       if (isTouch) isTouching = true;
       if (narrativeIdx >= 0) return;
 
@@ -406,14 +418,18 @@
       }
     }
 
-    msgOverlay.addEventListener("click", () => onInteraction(false, true));
-    msgOverlay.addEventListener("touchstart", (e) => {
+    // スタート画面のみ pointerdown を使用
+    msgOverlay.addEventListener("pointerdown", (e) => {
       e.preventDefault();
+      const isTouch = e.pointerType === "touch";
       const rect = canvas.getBoundingClientRect();
-      if (player) player.targetX = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
-      onInteraction(true, true);
+      if (player) {
+        player.targetX = (e.clientX - rect.left) * (canvas.width / rect.width);
+      }
+      onInteraction(isTouch, true);
     }, { passive: false });
-    msgOverlay.addEventListener("touchend", () => {
+
+    msgOverlay.addEventListener("pointerup", () => {
       isTouching = false; isWaitingForRelease = false;
     });
     window.addEventListener("mouseup", () => { isTouching = false; });
